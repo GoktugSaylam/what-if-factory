@@ -80,14 +80,6 @@ if 'model' not in st.session_state:
 with st.sidebar:
     st.markdown("### ⚙️ Ayarlar")
     
-    # API Model selection
-    model_choice = st.selectbox(
-        "Model Seçimi",
-        ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"],
-        help="io.net üzerinden çalışacak model"
-    )
-    st.session_state.model = model_choice
-    
     st.markdown("---")
     
     # File upload section
@@ -176,55 +168,59 @@ st.markdown("---")
 
 # Main decision area
 st.markdown("## 🎯 Karar Zamanı")
-st.markdown("Fabrika yöneticisi olarak bir karar seçin. AI ajanları gerçekçi sonuçları simüle edecek.")
+st.markdown("Fabrika yöneticisi olarak kararınızı yazın. AI ajanları gerçekçi sonuçları simüle edecek.")
 
 # Decision selection
 decision_col1, decision_col2 = st.columns([2, 1])
 
 with decision_col1:
-    selected_decision = st.selectbox(
-        "Kararınızı seçin:",
-        utils.DECISION_OPTIONS,
-        key="decision_select"
+    decision_input = st.text_area(
+        "Kararınızı yazın:",
+        placeholder="Örn: Vardiya sayısını 2'den 3'e çıkar, Makine bakım bütçesini %20 artır, 50 yeni çalışan işe al...",
+        height=100,
+        key="decision_input"
     )
     
     if st.button("🚀 Kararı Uygula", type="primary", use_container_width=True):
-        with st.spinner("🤖 AI ajanları sonuçları hesaplıyor..."):
-            # Step 1: Custom Agent - Simulate decision
-            result = agents.simulate_decision(
-                selected_decision,
-                st.session_state.context,
-                model=st.session_state.model
-            )
-            st.session_state.current_result = result
-            
-            # Step 2: Classification Agent - Classify risk
-            classification = agents.classify_risk(
-                selected_decision,
-                result,
-                model=st.session_state.model
-            )
-            st.session_state.current_classification = classification
-            
-            # Update score
-            score_change = result.get('score_impact', 0)
-            st.session_state.score += score_change
-            
-            # Save to history
-            st.session_state.history.append({
-                'decision': selected_decision,
-                'result': result,
-                'classification': classification,
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
-            })
-            
-            # Check for new badges
-            new_badges = utils.check_badges(st.session_state.history)
-            for badge in new_badges:
-                if badge not in st.session_state.badges:
-                    st.session_state.badges.append(badge)
-            
-            st.rerun()
+        if not decision_input or decision_input.strip() == "":
+            st.error("Lütfen bir karar yazın!")
+        else:
+            with st.spinner("🤖 AI ajanları sonuçları hesaplıyor..."):
+                # Step 1: Custom Agent - Simulate decision
+                result = agents.simulate_decision(
+                    decision_input,
+                    st.session_state.context,
+                    model=st.session_state.model
+                )
+                st.session_state.current_result = result
+                
+                # Step 2: Classification Agent - Classify risk
+                classification = agents.classify_risk(
+                    decision_input,
+                    result,
+                    model=st.session_state.model
+                )
+                st.session_state.current_classification = classification
+                
+                # Update score
+                score_change = result.get('score_impact', 0)
+                st.session_state.score += score_change
+                
+                # Save to history
+                st.session_state.history.append({
+                    'decision': decision_input,
+                    'result': result,
+                    'classification': classification,
+                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
+                })
+                
+                # Check for new badges
+                new_badges = utils.check_badges(st.session_state.history)
+                for badge in new_badges:
+                    if badge not in st.session_state.badges:
+                        st.session_state.badges.append(badge)
+                
+                st.rerun()
 
 with decision_col2:
     st.info("""
