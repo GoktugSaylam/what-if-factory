@@ -50,26 +50,6 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    .factory-visual {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 150px;
-        height: 150px;
-        border-radius: 10px;
-        background-size: cover;
-        background-position: center;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        z-index: 1000;
-    }
-    .factory-good {
-        background-image: url('https://img.icons8.com/fluency/96/factory.png');
-        background-color: #e8f5e8;
-    }
-    .factory-bad {
-        background-image: url('https://img.icons8.com/color/96/explosion.png');
-        background-color: #ffebee;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -112,6 +92,16 @@ if 'previous_production_rate' not in st.session_state:
     st.session_state.previous_production_rate = st.session_state.production_rate
 if 'previous_risk_level' not in st.session_state:
     st.session_state.previous_risk_level = st.session_state.risk_level
+
+# Turn and event system
+if 'week_number' not in st.session_state:
+    st.session_state.week_number = 1
+if 'pending_investments' not in st.session_state:
+    st.session_state.pending_investments = []  # [{investment_data, activation_week}]
+if 'current_event' not in st.session_state:
+    st.session_state.current_event = None
+if 'event_history' not in st.session_state:
+    st.session_state.event_history = []
 
 # Sidebar
 with st.sidebar:
@@ -167,6 +157,11 @@ with st.sidebar:
         st.session_state.previous_satisfaction = st.session_state.satisfaction
         st.session_state.previous_production_rate = st.session_state.production_rate
         st.session_state.previous_risk_level = st.session_state.risk_level
+        # Reset turn and event system
+        st.session_state.week_number = 1
+        st.session_state.pending_investments = []
+        st.session_state.current_event = None
+        st.session_state.event_history = []
         st.rerun()
     
     st.markdown("---")
@@ -182,16 +177,6 @@ with st.sidebar:
 # Main content
 st.markdown('<h1 class="main-header">🏭 What-If Factory</h1>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Fabrika Karar Simülatörü - Deneyerek Öğren!</p>', unsafe_allow_html=True)
-
-# Visual Feedback - Factory Status
-factory_class = "factory-good" if st.session_state.risk_level < 50 else "factory-bad"
-st.markdown(f"""
-<div class="factory-visual {factory_class}" title="Risk Seviyesi: {st.session_state.risk_level:.1f}%">
-    <div style="padding: 10px; text-align: center; font-size: 12px; font-weight: bold;">
-        Fabrika Durumu
-    </div>
-</div>
-""", unsafe_allow_html=True)
 
 # Factory Profile Display
 st.markdown("---")
@@ -216,7 +201,7 @@ satisfaction_delta = st.session_state.satisfaction - st.session_state.previous_s
 production_delta = st.session_state.production_rate - st.session_state.previous_production_rate
 risk_delta = st.session_state.risk_level - st.session_state.previous_risk_level
 
-kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5 = st.columns(5)
+kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5, kpi_col6 = st.columns(6)
 
 with kpi_col1:
     st.metric(
@@ -252,6 +237,9 @@ with kpi_col5:
     level_name, level_num, progress = utils.calculate_level(st.session_state.score)
     st.metric("⭐ Yönetici Seviyesi", level_name)
 
+with kpi_col6:
+    st.metric("📅 Hafta", f"#{st.session_state.week_number}")
+
 # Progress bar for level
 st.progress(progress, text=f"Sonraki seviyeye: %{int(progress*100)}")
 
@@ -261,37 +249,48 @@ if st.session_state.badges:
     badge_cols = st.columns(min(len(st.session_state.badges), 4))
     for idx, badge in enumerate(st.session_state.badges):
         with badge_cols[idx % 4]:
-            st.markdown(f"""
-            <div class="badge">
-                {badge['name']}<br>
-                <small>{badge['desc']}</small>
-            </div>
-            """, unsafe_allow_html=True)
+            st.success(f"**{badge['name']}**\n\n{badge['desc']}")
 
 st.markdown("---")
 
 # Live Charts with Plotly
 st.markdown("## 📈 Performans Grafikleri")
 
-# Prepare data for charts
-decisions = ["Başlangıç"] + [entry['decision'][:30] + "..." for entry in st.session_state.history]
-budget_values = [st.session_state.factory_profile['initial_budget']] + [
-    max(0, st.session_state.factory_profile['initial_budget'] + sum(
-        entry['result'].get('budget_impact', 0) for entry in st.session_state.history[:i+1]
-    )) for i in range(len(st.session_state.history))
-]
-
-satisfaction_values = [st.session_state.factory_profile['initial_satisfaction']] + [
-    max(0, min(100, st.session_state.factory_profile['initial_satisfaction'] + sum(
-        entry['result'].get('satisfaction_impact', 0) for entry in st.session_state.history[:i+1]
-    ))) for i in range(len(st.session_state.history))
-]
-
-production_values = [st.session_state.factory_profile['initial_production_rate']] + [
-    max(0, min(150, st.session_state.factory_profile['initial_production_rate'] + sum(
-        entry['result'].get('production_rate_impact', 0) for entry in st.session_state.history[:i+1]
-    ))) for i in range(len(st.session_state.history))
-]
+# Prepare data for charts - safely handle empty history
+if st.session_state.history:
+    decisions = ["Başlangıç"] + [
+        entry['decision'][:30] + "..." if len(entry['decision']) > 30 else entry['decision']
+        for entry in st.session_state.history
+    ]
+    
+    budget_values = [st.session_state.factory_profile['initial_budget']]
+    satisfaction_values = [st.session_state.factory_profile['initial_satisfaction']]
+    production_values = [st.session_state.factory_profile['initial_production_rate']]
+    
+    for i in range(len(st.session_state.history)):
+        # Calculate cumulative values
+        budget_change = sum(
+            entry['result'].get('budget_impact', 0) 
+            for entry in st.session_state.history[:i+1]
+        )
+        satisfaction_change = sum(
+            entry['result'].get('satisfaction_impact', 0) 
+            for entry in st.session_state.history[:i+1]
+        )
+        production_change = sum(
+            entry['result'].get('production_rate_impact', 0) 
+            for entry in st.session_state.history[:i+1]
+        )
+        
+        budget_values.append(max(0, st.session_state.factory_profile['initial_budget'] + budget_change))
+        satisfaction_values.append(max(0, min(100, st.session_state.factory_profile['initial_satisfaction'] + satisfaction_change)))
+        production_values.append(max(0, min(150, st.session_state.factory_profile['initial_production_rate'] + production_change)))
+else:
+    # No history yet - show initial values only
+    decisions = ["Başlangıç"]
+    budget_values = [st.session_state.factory_profile['initial_budget']]
+    satisfaction_values = [st.session_state.factory_profile['initial_satisfaction']]
+    production_values = [st.session_state.factory_profile['initial_production_rate']]
 
 # Create plotly figure
 fig = go.Figure()
@@ -328,14 +327,12 @@ fig.update_layout(
     title="Fabrika Performans Trendleri",
     xaxis=dict(title="Kararlar", tickangle=45),
     yaxis=dict(
-        title="Bütçe (TL)",
-        titlefont=dict(color="#667eea"),
+        title=dict(text="Bütçe (TL)", font=dict(color="#667eea")),
         tickfont=dict(color="#667eea"),
         side="left"
     ),
     yaxis2=dict(
-        title="Memnuniyet & Üretim (%)",
-        titlefont=dict(color="#764ba2"),
+        title=dict(text="Memnuniyet & Üretim (%)", font=dict(color="#764ba2")),
         tickfont=dict(color="#764ba2"),
         anchor="x",
         overlaying="y",
@@ -378,6 +375,80 @@ if st.session_state.game_over:
         st.session_state.previous_risk_level = st.session_state.risk_level
         st.rerun()
 else:
+    # Event Display - Show current event before decision making
+    if st.session_state.current_event and not st.session_state.current_event.get('resolved', False):
+        event = st.session_state.current_event
+        st.error(f"### 🚨 {event['event_name']}\n\n{event['event_description']}")
+        
+        # Show expected impacts
+        st.markdown("**Beklenen Etkiler:**")
+        impacts = event.get('event_impacts', {})
+        impact_cols = st.columns(4)
+        with impact_cols[0]:
+            budget_impact = impacts.get('budget', 0)
+            st.metric("Bütçe", f"{budget_impact:+,} TL")
+        with impact_cols[1]:
+            prod_impact = impacts.get('production_rate', 0)
+            st.metric("Üretim", f"{prod_impact:+}%")
+        with impact_cols[2]:
+            sat_impact = impacts.get('satisfaction', 0)
+            st.metric("Memnuniyet", f"{sat_impact:+}%")
+        with impact_cols[3]:
+            risk_impact = impacts.get('risk', 0)
+            st.metric("Risk", f"{risk_impact:+}%")
+        
+        st.markdown("---")
+        
+        # Check if player can respond
+        if event.get('player_can_respond', False):
+            st.markdown("**💡 Bu event'e nasıl yanıt vermek istersiniz?**")
+            response_options = event.get('response_options', [])
+            
+            response_cols = st.columns(len(response_options))
+            for i, option in enumerate(response_options):
+                with response_cols[i]:
+                    if st.button(option, key=f"event_response_{i}", use_container_width=True):
+                        # Apply mitigated impacts (50% reduction for taking action)
+                        st.session_state.budget += impacts.get('budget', 0) * 0.5
+                        st.session_state.production_rate = max(0, min(150, st.session_state.production_rate + impacts.get('production_rate', 0) * 0.5))
+                        st.session_state.satisfaction = max(0, min(100, st.session_state.satisfaction + impacts.get('satisfaction', 0) * 0.5))
+                        st.session_state.risk_level = min(100, st.session_state.risk_level + impacts.get('risk', 0) * 0.5)
+                        
+                        # Mark as resolved
+                        st.session_state.current_event['resolved'] = True
+                        st.session_state.event_history.append({
+                            'week': st.session_state.week_number,
+                            'event': event,
+                            'response': option
+                        })
+                        st.success(f"✅ Event'e yanıt verildi: {option}")
+                        st.rerun()
+        else:
+            # Event cannot be responded to - forced accept
+            st.warning("⚠️ **Bu event'e müdahale edilemiyor. Etkileri kabul etmelisiniz.**")
+            if st.button("Kabul Et ve Devam", type="primary"):
+                # Apply full negative impacts
+                st.session_state.budget += impacts.get('budget', 0)
+                st.session_state.production_rate = max(0, min(150, st.session_state.production_rate + impacts.get('production_rate', 0)))
+                st.session_state.satisfaction = max(0, min(100, st.session_state.satisfaction + impacts.get('satisfaction', 0)))
+                st.session_state.risk_level = min(100, st.session_state.risk_level + impacts.get('risk', 0))
+                
+                # Mark as resolved
+                st.session_state.current_event['resolved'] = True
+                st.session_state.event_history.append({
+                    'week': st.session_state.week_number,
+                    'event': event,
+                    'response': 'Forced Accept'
+                })
+                st.rerun()
+        
+        st.markdown("---")
+        st.info("ℹ️ Event'i çözdükten sonra karar alabilirsiniz.")
+    else:
+        # No active event - show pending investments info
+        if st.session_state.pending_investments:
+            st.info(f"⏳ **Bekleyen Yatırımlar**: {len(st.session_state.pending_investments)} adet yatırım tamamlanmayı bekliyor...")
+    
     # Main decision area
     st.markdown("## 🎯 Karar Zamanı")
     st.markdown("Fabrika yöneticisi olarak kararınızı yazın. AI ajanları gerçekçi sonuçları simüle edecek.")
@@ -477,6 +548,53 @@ else:
                     for badge in new_badges:
                         if badge not in st.session_state.badges:
                             st.session_state.badges.append(badge)
+                    
+                    # INVESTMENT DETECTION: Check if decision is an investment
+                    if result.get('is_investment', False) and result.get('investment_delay_weeks', 0) > 0:
+                        activation_week = st.session_state.week_number + result['investment_delay_weeks']
+                        st.session_state.pending_investments.append({
+                            'decision': final_decision,
+                            'activation_week': activation_week,
+                            'description': result.get('investment_description', ''),
+                            'delayed_production_impact': result.get('delayed_production_impact', 0),
+                            'delayed_budget_impact': result.get('delayed_budget_impact', 0),
+                            'delayed_satisfaction_impact': result.get('delayed_satisfaction_impact', 0)
+                        })
+                        st.info(f"⏳ **Yatırım tespit edildi!** {result.get('investment_description', 'Yatırım')} - {result['investment_delay_weeks']} hafta sonra tamamlanacak.")
+                    
+                    # PENDING INVESTMENTS ACTIVATION: Check if any investments should activate this week
+                    activated_investments = []
+                    for investment in st.session_state.pending_investments:
+                        if investment['activation_week'] == st.session_state.week_number:
+                            # Apply delayed effects
+                            st.session_state.production_rate = max(0, min(150, st.session_state.production_rate + investment['delayed_production_impact']))
+                            st.session_state.budget += investment['delayed_budget_impact']
+                            st.session_state.satisfaction = max(0, min(100, st.session_state.satisfaction + investment['delayed_satisfaction_impact']))
+                            
+                            activated_investments.append(investment)
+                            st.success(f"✅ **Yatırım tamamlandı!** {investment['description']}")
+                    
+                    # Remove activated investments
+                    for investment in activated_investments:
+                        st.session_state.pending_investments.remove(investment)
+                    
+                    # GENERATE NEW EVENT for next turn (AI-generated)
+                    try:
+                        new_event = agents.generate_random_event(
+                            st.session_state.factory_profile,
+                            st.session_state.risk_level,
+                            st.session_state.week_number + 1,  # For next week
+                            model=st.session_state.model
+                        )
+                        if new_event:
+                            st.session_state.current_event = new_event
+                            st.session_state.current_event['resolved'] = False
+                    except Exception as e:
+                        print(f"Event generation error: {e}")
+                        # No event this turn
+                    
+                    # INCREMENT WEEK
+                    st.session_state.week_number += 1
                     
                     # Game Over Check
                     if st.session_state.budget <= 0:

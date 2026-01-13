@@ -11,6 +11,9 @@ FABRİKA BAĞLAMI: {factory_profile}
 ANALİZ ÇERÇEVEN:
 - **OEE Değerlendirmesi**: Kullanılabilirlik, Performans, Kalite faktörlerini hesapla
 - **Darboğaz Analizi**: Kritik kaynak kısıtlarını belirle ve darboğaz etkilerini modelle
+- **Çalışan Yetenek Analizi**: Operatör, teknisyen, bakım, mühendis, kalite kontrol, yönetim kadrosu sayılarını dikkate al
+  * Bazı kararlar belirli beceriler gerektirir (otomasyon → mühendis, bakım → teknisyen+bakım ekibi)
+  * Yetersiz becerili eleman varsa riskleri artır
 - **ROI Hesaplaması**: Yatırımların geri dönüş sürelerini ve NPV'sini değerlendir
 - **Risk Matrisi**: Olasılık x Etki çarpımı ile risk skorlaması yap
 - **Kaizen Felsefesi**: Sürekli iyileştirme potansiyellerini belirle
@@ -28,8 +31,27 @@ ANALİZ ÇERÇEVEN:
   "score_impact": <-50 ile +70 arası DENGELI puan>,
   "budget_impact": <bütçe değişimi TL>,
   "satisfaction_impact": <memnuniyet değişimi % (-10 ile +15 arası)>,
-  "production_rate_impact": <üretim hızı değişimi % (-20 ile +30 arası)>
+  "production_rate_impact": <üretim hızı değişimi % (-20 ile +30 arası)>,
+  
+  "is_investment": <true/false - otomasyon, makine, eğitim gibi uzun vadeli yatırım mı?>,
+  "investment_delay_weeks": <0-8 hafta - 0 = hemen, yatırımsa karmaşıklığa göre belirle>,
+  "investment_description": "<Yatırım açıklaması - yatırımsa doldur>",
+  "delayed_production_impact": <yatırım tamamlandığında ek üretim etkisi %>,
+  "delayed_budget_impact": <yatırım tamamlandığında ek bütçe etkisi TL>,
+  "delayed_satisfaction_impact": <yatırım tamamlandığında ek memnuniyet etkisi %>
 }}
+
+YATIRIM BELİRLEME:
+Eğer karar yatırım içeriyorsa:
+- is_investment: true yap
+- investment_delay_weeks: Karmaşıklığa göre belirle:
+  * Otomasyon/Robot kollar: 6-8 hafta
+  * Makine yenileme/satın alma: 4-6 hafta
+  * Eğitim programı/kurs: 2-3 hafta
+  * Bakım sistemi optimizasyonu: 1-2 hafta
+  * Yazılım implementasyonu: 3-5 hafta
+- delayed_*_impact: Yatırım tamamlandığında uygulanacak POZITIF etkiler (genelde büyük kazançlar)
+- Anlık etkilerde yatırımın NEGATİF tarafını göster (nakit çıkışı, geçiş zorluğu)
 
 GERÇEKÇI SENARYO ÖRNEKLERİ:
 - **Vardiya artırma**: OEE %75'ten %85'e çıkar, ancak yorgunluk nedeniyle 6 sigma kalite seviyesi düşer, JIT stok yönetimi bozulur
@@ -120,6 +142,95 @@ Markdown formatında rapor hazırla:
 Profesyonel ama anlaşılır dil kullan. Türkçe yaz. Metriklerle destekle.
 """
 
+EVENT_GENERATOR_SYSTEM = """Sen bir fabrika simülasyon oyunu için event generator AI'sısın.
+Fabrika bağlamına, risk seviyesine ve hafta numarasına göre gerçekçi ve zorlayıcı random event'ler üretiyorsun.
+
+BAĞLAM BİLGİLERİ:
+- Fabrika Profili: {factory_context}
+- Risk Seviyesi: {risk_level}%
+- Hafta Numarası: {week_number}
+
+**ÇOK ÖNEMLİ:** SADECE JSON cevap ver (markdown kod bloğu kullanma):
+
+{{
+  "has_event": <true/false - %70 ihtimalle true, %30 ihtimalle false>,
+  "event_name": "<Kısa, çarpıcı event adı - örn: 'Elektrik Kesintisi', 'Grev Başladı'>",
+  "event_description": "<2-3 cümle detaylı açıklama, fabrika sektörüne özgü>",
+  "event_impacts": {{
+    "budget": <TL değişimi - POZİTİF veya NEGATİF olabilir>,
+    "production_rate": <% değişimi - POZİTİF veya NEGATİF olabilir>,
+    "satisfaction": <% değişimi>,
+    "risk": <% değişimi, kötü event'te artar, iyi event'te azalır>
+  }},
+  "player_can_respond": <true/false - event'e müdahale edilebilir mi?>,
+  "response_options": ["<Aksiyon seçeneği 1>", "<Aksiyon seçeneği 2>"]
+}}
+
+EVENT ÜRETME KURALLARI:
+
+**ÇOK ÖNEMLİ**: %40 ihtimalle POZİTİF event üret (iyi haberler)!
+- Pozitif eventler: +budget, +production, +satisfaction, -risk
+- Negatif eventler: -budget, -production, -satisfaction, +risk
+
+1. **Sektöre Özel Event'ler**:
+   - Tekstil: [NEG] Kumaş tedarikçisi iflas etti, [POS] Büyük ihracat siparişi geldi
+   - Gıda: [NEG] Ani hijyen denetimi, [POS] Yeni süpermarket zinciri anlaşması
+   - Otomotiv: [NEG] Tedarikçi parça kalite sorunu, [POS] OEM'den ek sipariş
+   - Elektronik: [NEG] Çip tedarik krizi, [POS] Ar-Ge hibesi kazanıldı
+   - İlaç: [NEG] GMP denetimi, [POS] Patent onayı alındı
+
+2. **Risk Seviyesine Göre**:
+   - Risk < 30%: Hafif event'ler (elektrik faturası arttı, küçük makine bakımı)
+   - Risk 30-60%: Orta event'ler (makine arızası, personel devamsızlığı)
+   - Risk > 60%: Ağır event'ler (grev, iş kazası, yangın)
+
+3. **Hafta Numarasına Göre**:
+   - İlk 5 hafta: Basit event'ler (alışma süreci)
+   - Hafta 5-15: Normal zorluk
+   - Hafta 15+: Daha komplike event'ler
+
+4. **Müdahale Edilebilirlik**:
+   - %60 event'lere müdahale edilebilir (player_can_respond: true)
+   - 2 aksiyon seçeneği sun: Biri pahalı ama etkili, diğeri ucuz ama riskli
+   - %40 event'ler zorunlu (player_can_respond: false), oyuncu kabul etmek zorunda
+
+5. **Event Şiddeti**:
+   - Budget impact: -10K TL (hafif) ile -200K TL (ağır)
+   - Production impact: -%5 (hafif) ile -%30 (ağır)
+   - Risk artışı: +5% ile +20%
+
+EVENT ÖRNEKLERİ:
+
+**Müdahale Edilebilir:**
+```
+{
+  "has_event": true,
+  "event_name": "Ana Hat Makine Arızası",
+  "event_description": "Üretim hattının kritik makinesi arızalandı. Yedek parça temin süresi 3-5 gün. Üretim durdu.",
+  "event_impacts": {"budget": -50000, "production_rate": -20, "satisfaction": -5, "risk": 10},
+  "player_can_respond": true,
+  "response_options": [
+    "Express kargo ile parça getir (3x maliyet, 1 gün)",
+    "Normal teslimatı bekle (normal maliyet, 5 gün)"
+  ]
+}
+```
+
+**Zorunlu Kabul:**
+```
+{
+  "has_event": true,
+  "event_name": "Enerji Faturası Zammı",
+  "event_description": "Elektrik tedarik şirketi fiyatları %25 artırdı. Sözleşme yenilenene kadar yeni fiyat geçerli.",
+  "event_impacts": {"budget": -30000, "production_rate": 0, "satisfaction": 0, "risk": 5},
+  "player_can_respond": false,
+  "response_options": []
+}
+```
+
+UNUTMA: %30 ihtimalle has_event: false döndür (event yok, sessiz hafta).
+"""
+
 def get_custom_agent_prompt(decision: str, context: str = "") -> str:
     """Custom Agent için user prompt oluşturur"""
     context_text = f"\n### Fabrika Bağlamı:\n{context}\n" if context else ""
@@ -156,3 +267,17 @@ def get_summary_prompt(history: list) -> str:
 {history_text}
 
 Bu kararları değerlendirip bir dönem özeti raporu hazırla."""
+
+def get_event_generator_prompt(factory_profile: dict, risk_level: float, week_number: int) -> str:
+    """Event Generator için prompt oluşturur"""
+    factory_context = f"""
+Sektör: {factory_profile.get('sector', 'Genel Üretim')}
+Mevcut Durum: {factory_profile.get('current_status', 'Normal operasyon')}
+Çalışan: {factory_profile.get('employee_count', {}).get('total', 200)} kişi
+"""
+    
+    return EVENT_GENERATOR_SYSTEM.format(
+        factory_context=factory_context,
+        risk_level=risk_level,
+        week_number=week_number
+    )

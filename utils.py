@@ -192,13 +192,26 @@ def generate_factory_profile() -> dict:
     blue_collar = random.randint(100, 400)
     white_collar = random.randint(15, 50)
     
+    # Calculate skill distribution for blue collar workers
+    operators = int(blue_collar * 0.6)  # 60% operators
+    technicians = int(blue_collar * 0.25)  # 25% technicians
+    maintenance = blue_collar - operators - technicians  # Remaining for maintenance
+    
     profile = {
         "sector": f"{selected_sector['sector']} - {selected_sector['product']}",
         "current_status": random.choice(selected_sector['situations']),
         "employee_count": {
             "blue_collar": blue_collar,
             "white_collar": white_collar,
-            "total": blue_collar + white_collar
+            "total": blue_collar + white_collar,
+            "skills": {
+                "operators": operators,
+                "technicians": technicians,
+                "maintenance_crew": maintenance,
+                "engineers": int(white_collar * 0.4),
+                "quality_control": int(white_collar * 0.3),
+                "management": white_collar - int(white_collar * 0.7)
+            }
         },
         "initial_budget": random.randint(2000000, 8000000),  # 2-8M TL
         "initial_satisfaction": random.randint(60, 85),  # %

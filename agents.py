@@ -46,11 +46,19 @@ def simulate_decision(decision: str, context: str = "", factory_profile: dict = 
     try:
         factory_context = ""
         if factory_profile:
+            skills = factory_profile.get('employee_count', {}).get('skills', {})
             factory_context = f"""
 FABRİKA PROFİLİ:
 - Sektör: {factory_profile.get('sector', 'Genel Üretim')}
 - Mevcut Durum: {factory_profile.get('current_status', 'Standart operasyon')}
 - Çalışan Sayısı: {factory_profile.get('employee_count', {}).get('total', 200)} (Mavi Yaka: {factory_profile.get('employee_count', {}).get('blue_collar', 150)}, Beyaz Yaka: {factory_profile.get('employee_count', {}).get('white_collar', 20)})
+- Çalışan Becerileri:
+  * Operatörler: {skills.get('operators', 0)} kişi
+  * Teknisyenler: {skills.get('technicians', 0)} kişi
+  * Bakım Ekibi: {skills.get('maintenance_crew', 0)} kişi
+  * Mühendisler: {skills.get('engineers', 0)} kişi
+  * Kalite Kontrol: {skills.get('quality_control', 0)} kişi
+  * Yönetim: {skills.get('management', 0)} kişi
 - Başlangıç Bütçesi: {factory_profile.get('initial_budget', 5000000):,} TL
 """
         
@@ -83,7 +91,14 @@ FABRİKA PROFİLİ:
         
         return result
     except Exception as e:
-        print(f"Error in simulate_decision: {e}")
+        print(f"====== ERROR in simulate_decision ======")
+        print(f"Error: {e}")
+        print(f"Decision: {decision}")
+        if 'response_text' in locals():
+            print(f"Response text: {response_text[:500]}")
+        import traceback
+        traceback.print_exc()
+        print(f"====== END ERROR ======")
         # Fallback response
         return {
             "production_change_percent": 0,
@@ -95,7 +110,13 @@ FABRİKA PROFİLİ:
             "score_impact": 0,
             "budget_impact": 0,
             "satisfaction_impact": 0,
-            "production_rate_impact": 0
+            "production_rate_impact": 0,
+            "is_investment": False,
+            "investment_delay_weeks": 0,
+            "investment_description": "",
+            "delayed_production_impact": 0,
+            "delayed_budget_impact": 0,
+            "delayed_satisfaction_impact": 0
         }
 
 def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
@@ -141,6 +162,9 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
         return classification
     except Exception as e:
         print(f"Error in classify_risk: {e}")
+        print(f"Response text (if available): {response_text if 'response_text' in locals() else 'N/A'}")
+        import traceback
+        traceback.print_exc()
         return {
             "category": "Güvenli",
             "explanation": "Sınıflandırma hatası.",
@@ -159,7 +183,7 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
         str: Markdown formatted summary report
     """
     if not history:
-        return "## Henüz karar alınmadı\n\nKarar aldıkça burada özet göreceksiniz."
+        return "## Henüz karar alınmadı\n\nKarar aldık ça burada özet göreceksiniz."
     
     try:
         if USE_GEMINI:
@@ -184,3 +208,54 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
     except Exception as e:
         print(f"Error in generate_summary: {e}")
         return f"## Özet Hatası\n\nRapor oluşturulurken hata oluştu: {str(e)}"
+
+def generate_random_event(factory_profile: dict, risk_level: float, week_number: int, model: str = "gpt-4") -> dict:
+    """
+    Event Generator Agent: Generates contextual random events
+    
+    Args:
+        factory_profile: Factory profile dict
+        risk_level: Current risk level (0-100)
+        week_number: Current week number
+        model: Model to use
+    
+    Returns:
+        dict: Event data or None if no event
+    """
+    try:
+        if USE_GEMINI:
+            # Use Gemini API
+            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+            prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
+            response = gemini_model.generate_content(prompt)
+            
+            # Extract JSON from response (handle markdown code blocks)
+            response_text = response.text.strip()
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+            event = json.loads(response_text)
+        else:
+            # Use OpenAI/io.net API
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are an event generator for a factory simulation game."},
+                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}
+                ],
+                temperature=0.8,
+                response_format={"type": "json_object"}
+            )
+            event = json.loads(response.choices[0].message.content)
+        
+        # Return None if no event
+        if not event.get('has_event', False):
+            return None
+            
+        return event
+    except Exception as e:
+        print(f"Error in generate_random_event: {e}")
+        # Return None on error (no event)
+        return None
