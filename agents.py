@@ -30,23 +30,34 @@ else:
         base_url=os.getenv("IO_BASE_URL") or "https://api.openai.com/v1"
     )
 
-def simulate_decision(decision: str, context: str = "", model: str = "gpt-4") -> dict:
+def simulate_decision(decision: str, context: str = "", factory_profile: dict = None, model: str = "gpt-4") -> dict:
     """
     Custom Agent: Simulates factory decision outcomes
     
     Args:
         decision: The decision made by user
         context: Optional factory context from uploaded files
+        factory_profile: Factory profile dict
         model: Model to use (default gpt-4)
     
     Returns:
         dict: Simulation results
     """
     try:
+        factory_context = ""
+        if factory_profile:
+            factory_context = f"""
+FABRİKA PROFİLİ:
+- Sektör: {factory_profile.get('sector', 'Genel Üretim')}
+- Mevcut Durum: {factory_profile.get('current_status', 'Standart operasyon')}
+- Çalışan Sayısı: {factory_profile.get('employee_count', {}).get('total', 200)} (Mavi Yaka: {factory_profile.get('employee_count', {}).get('blue_collar', 150)}, Beyaz Yaka: {factory_profile.get('employee_count', {}).get('white_collar', 20)})
+- Başlangıç Bütçesi: {factory_profile.get('initial_budget', 5000000):,} TL
+"""
+        
         if USE_GEMINI:
             # Use Gemini API
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
-            prompt = f"{prompts.CUSTOM_AGENT_SYSTEM.format(context=context)}\n\n{prompts.get_custom_agent_prompt(decision, context)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
+            prompt = f"{prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)}\n\n{prompts.get_custom_agent_prompt(decision, context)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
             
             # Extract JSON from response (handle markdown code blocks)
@@ -62,7 +73,7 @@ def simulate_decision(decision: str, context: str = "", model: str = "gpt-4") ->
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": prompts.CUSTOM_AGENT_SYSTEM.format(context=context)},
+                    {"role": "system", "content": prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)},
                     {"role": "user", "content": prompts.get_custom_agent_prompt(decision, context)}
                 ],
                 temperature=0.7,
@@ -81,7 +92,10 @@ def simulate_decision(decision: str, context: str = "", model: str = "gpt-4") ->
             "risk_level": "Orta",
             "risk_explanation": "Simülasyon hatası oluştu.",
             "side_effects": ["API hatası"],
-            "score_impact": 0
+            "score_impact": 0,
+            "budget_impact": 0,
+            "satisfaction_impact": 0,
+            "production_rate_impact": 0
         }
 
 def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:

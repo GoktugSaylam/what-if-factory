@@ -5,6 +5,7 @@ import pandas as pd
 import fitz  # PyMuPDF
 import json
 from io import BytesIO
+import random
 
 def parse_file(uploaded_file) -> str:
     """
@@ -124,3 +125,85 @@ DECISION_OPTIONS = [
     "🔥 Fazla mesai uygula (hafta sonu dahil)",
     "🤖 Otomasyon sistemine geç (robot kollar)"
 ]
+
+def generate_factory_profile() -> dict:
+    """
+    Generate a random factory profile for the simulation
+    
+    Returns:
+        dict: Factory profile with sector, current status, employee count, etc.
+    """
+    sectors = [
+        {
+            "sector": "Otomotiv Yan Sanayi",
+            "product": "Vites kutusu üretiyor",
+            "situations": [
+                "Siparişler patladı ama makineler eski",
+                "Tedarik zinciri kırılgan, hammadde fiyatları arttı",
+                "Kalite şikayetleri artıyor, müşteri kaybı riski var",
+                "Enerji maliyetleri %30 arttı, sürdürülebilirlik baskısı var"
+            ]
+        },
+        {
+            "sector": "Tekstil",
+            "product": "Denim kumaş üretiyor",
+            "situations": [
+                "Moda trendleri değişiyor, stok yönetimi kritik",
+                "Çevre düzenlemeleri sıkılaştı, yeşil üretim zorunlu",
+                "Çalışan memnuniyeti düşük, grev riski var",
+                "İhracat pazarı daraldı, iç piyasa odaklı dönüşüm gerekli"
+            ]
+        },
+        {
+            "sector": "Gıda İşleme",
+            "product": "Konserve gıda üretiyor",
+            "situations": [
+                "Hammaddeler bozulabilir, hijyen kritik",
+                "Düzenleyici standartlar değişiyor",
+                "Tedarik zinciri kesintiye uğradı",
+                "Paketleme teknolojisi eski, verimlilik düşük"
+            ]
+        },
+        {
+            "sector": "Elektronik",
+            "product": "Akıllı telefon şarj cihazı üretiyor",
+            "situations": [
+                "Teknoloji hızla değişiyor, ürün yaşam döngüsü kısa",
+                "Çip krizi devam ediyor, tedarik sorunları var",
+                "Rekabet yoğun, fiyat baskısı yüksek",
+                "Kalite standartları çok yüksek, tolerans sıfır"
+            ]
+        },
+        {
+            "sector": "İlaç",
+            "product": "Jenerik ilaç üretiyor",
+            "situations": [
+                "Düzenleyici onay süreçleri uzun",
+                "Hammadde saflık standartları çok yüksek",
+                "Rekabet fiyat baskısı altında",
+                "Ar-Ge yatırımı zorunlu ama maliyetli"
+            ]
+        }
+    ]
+    
+    selected_sector = random.choice(sectors)
+    
+    # Generate employee counts
+    blue_collar = random.randint(100, 400)
+    white_collar = random.randint(15, 50)
+    
+    profile = {
+        "sector": f"{selected_sector['sector']} - {selected_sector['product']}",
+        "current_status": random.choice(selected_sector['situations']),
+        "employee_count": {
+            "blue_collar": blue_collar,
+            "white_collar": white_collar,
+            "total": blue_collar + white_collar
+        },
+        "initial_budget": random.randint(2000000, 8000000),  # 2-8M TL
+        "initial_satisfaction": random.randint(60, 85),  # %
+        "initial_production_rate": random.randint(70, 90),  # %
+        "initial_risk": random.randint(20, 50)  # %
+    }
+    
+    return profile

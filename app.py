@@ -6,6 +6,8 @@ import streamlit as st
 import agents
 import utils
 from datetime import datetime
+import plotly.graph_objects as go
+import plotly.express as px
 
 # Page configuration
 st.set_page_config(
@@ -48,14 +50,25 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    .badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        margin: 0.3rem;
-        background: #ffd700;
-        border-radius: 20px;
-        font-weight: bold;
-        color: #333;
+    .factory-visual {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 150px;
+        height: 150px;
+        border-radius: 10px;
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        z-index: 1000;
+    }
+    .factory-good {
+        background-image: url('https://img.icons8.com/fluency/96/factory.png');
+        background-color: #e8f5e8;
+    }
+    .factory-bad {
+        background-image: url('https://img.icons8.com/color/96/explosion.png');
+        background-color: #ffebee;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -75,6 +88,30 @@ if 'current_classification' not in st.session_state:
     st.session_state.current_classification = None
 if 'model' not in st.session_state:
     st.session_state.model = "gpt-4"
+
+# New session states for enhanced features
+if 'factory_profile' not in st.session_state:
+    st.session_state.factory_profile = utils.generate_factory_profile()
+if 'budget' not in st.session_state:
+    st.session_state.budget = st.session_state.factory_profile['initial_budget']
+if 'satisfaction' not in st.session_state:
+    st.session_state.satisfaction = st.session_state.factory_profile['initial_satisfaction']
+if 'production_rate' not in st.session_state:
+    st.session_state.production_rate = st.session_state.factory_profile['initial_production_rate']
+if 'risk_level' not in st.session_state:
+    st.session_state.risk_level = st.session_state.factory_profile['initial_risk']
+if 'game_over' not in st.session_state:
+    st.session_state.game_over = False
+if 'game_over_reason' not in st.session_state:
+    st.session_state.game_over_reason = ""
+if 'previous_budget' not in st.session_state:
+    st.session_state.previous_budget = st.session_state.budget
+if 'previous_satisfaction' not in st.session_state:
+    st.session_state.previous_satisfaction = st.session_state.satisfaction
+if 'previous_production_rate' not in st.session_state:
+    st.session_state.previous_production_rate = st.session_state.production_rate
+if 'previous_risk_level' not in st.session_state:
+    st.session_state.previous_risk_level = st.session_state.risk_level
 
 # Sidebar
 with st.sidebar:
@@ -119,6 +156,17 @@ with st.sidebar:
         st.session_state.badges = []
         st.session_state.current_result = None
         st.session_state.current_classification = None
+        st.session_state.factory_profile = utils.generate_factory_profile()
+        st.session_state.budget = st.session_state.factory_profile['initial_budget']
+        st.session_state.satisfaction = st.session_state.factory_profile['initial_satisfaction']
+        st.session_state.production_rate = st.session_state.factory_profile['initial_production_rate']
+        st.session_state.risk_level = st.session_state.factory_profile['initial_risk']
+        st.session_state.game_over = False
+        st.session_state.game_over_reason = ""
+        st.session_state.previous_budget = st.session_state.budget
+        st.session_state.previous_satisfaction = st.session_state.satisfaction
+        st.session_state.previous_production_rate = st.session_state.production_rate
+        st.session_state.previous_risk_level = st.session_state.risk_level
         st.rerun()
     
     st.markdown("---")
@@ -135,25 +183,81 @@ with st.sidebar:
 st.markdown('<h1 class="main-header">🏭 What-If Factory</h1>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Fabrika Karar Simülatörü - Deneyerek Öğren!</p>', unsafe_allow_html=True)
 
-# Metrics row
-level_name, level_num, progress = utils.calculate_level(st.session_state.score)
+# Visual Feedback - Factory Status
+factory_class = "factory-good" if st.session_state.risk_level < 50 else "factory-bad"
+st.markdown(f"""
+<div class="factory-visual {factory_class}" title="Risk Seviyesi: {st.session_state.risk_level:.1f}%">
+    <div style="padding: 10px; text-align: center; font-size: 12px; font-weight: bold;">
+        Fabrika Durumu
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
+# Factory Profile Display
+st.markdown("---")
+st.markdown("## 🏢 Fabrika Profili")
+profile = st.session_state.factory_profile
+col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("💯 Puan", st.session_state.score)
+    st.markdown(f"**🏭 Sektör:** {profile['sector']}")
 with col2:
-    st.metric("⭐ Seviye", level_name)
+    st.markdown(f"**👥 Çalışan:** {profile['employee_count']['total']} kişi")
 with col3:
-    st.metric("📈 Toplam Karar", len(st.session_state.history))
-with col4:
-    st.metric("🏅 Rozet", len(st.session_state.badges))
+    st.markdown(f"**📊 Durum:** {profile['current_status']}")
 
-# Progress bar
+st.markdown("---")
+
+# Professional KPI Dashboard
+st.markdown("## 📊 KPI Dashboard")
+
+# Calculate deltas
+budget_delta = st.session_state.budget - st.session_state.previous_budget
+satisfaction_delta = st.session_state.satisfaction - st.session_state.previous_satisfaction
+production_delta = st.session_state.production_rate - st.session_state.previous_production_rate
+risk_delta = st.session_state.risk_level - st.session_state.previous_risk_level
+
+kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5 = st.columns(5)
+
+with kpi_col1:
+    st.metric(
+        "💰 Bütçe (TL)",
+        f"{st.session_state.budget:,.0f}",
+        delta=f"{budget_delta:+,.0f}" if budget_delta != 0 else None,
+        delta_color="inverse"
+    )
+
+with kpi_col2:
+    st.metric(
+        "😊 Memnuniyet (%)",
+        f"{st.session_state.satisfaction:.1f}",
+        delta=f"{satisfaction_delta:+.1f}" if satisfaction_delta != 0 else None
+    )
+
+with kpi_col3:
+    st.metric(
+        "⚙️ Üretim Hızı (%)",
+        f"{st.session_state.production_rate:.1f}",
+        delta=f"{production_delta:+.1f}" if production_delta != 0 else None
+    )
+
+with kpi_col4:
+    st.metric(
+        "⚠️ Risk Seviyesi (%)",
+        f"{st.session_state.risk_level:.1f}",
+        delta=f"{risk_delta:+.1f}" if risk_delta != 0 else None,
+        delta_color="inverse"
+    )
+
+with kpi_col5:
+    level_name, level_num, progress = utils.calculate_level(st.session_state.score)
+    st.metric("⭐ Yönetici Seviyesi", level_name)
+
+# Progress bar for level
 st.progress(progress, text=f"Sonraki seviyeye: %{int(progress*100)}")
 
 # Badges display
 if st.session_state.badges:
-    st.markdown("### 🏆 Rozetleriniz")
+    st.markdown("### 🏆 Başarı Rozetleri")
     badge_cols = st.columns(min(len(st.session_state.badges), 4))
     for idx, badge in enumerate(st.session_state.badges):
         with badge_cols[idx % 4]:
@@ -166,74 +270,236 @@ if st.session_state.badges:
 
 st.markdown("---")
 
-# Main decision area
-st.markdown("## 🎯 Karar Zamanı")
-st.markdown("Fabrika yöneticisi olarak kararınızı yazın. AI ajanları gerçekçi sonuçları simüle edecek.")
+# Live Charts with Plotly
+st.markdown("## 📈 Performans Grafikleri")
 
-# Decision selection
-decision_col1, decision_col2 = st.columns([2, 1])
+# Prepare data for charts
+decisions = ["Başlangıç"] + [entry['decision'][:30] + "..." for entry in st.session_state.history]
+budget_values = [st.session_state.factory_profile['initial_budget']] + [
+    max(0, st.session_state.factory_profile['initial_budget'] + sum(
+        entry['result'].get('budget_impact', 0) for entry in st.session_state.history[:i+1]
+    )) for i in range(len(st.session_state.history))
+]
 
-with decision_col1:
-    decision_input = st.text_area(
-        "Kararınızı yazın:",
-        placeholder="Örn: Vardiya sayısını 2'den 3'e çıkar, Makine bakım bütçesini %20 artır, 50 yeni çalışan işe al...",
-        height=100,
-        key="decision_input"
-    )
-    
-    if st.button("🚀 Kararı Uygula", type="primary", use_container_width=True):
-        if not decision_input or decision_input.strip() == "":
-            st.error("Lütfen bir karar yazın!")
-        else:
-            with st.spinner("🤖 AI ajanları sonuçları hesaplıyor..."):
-                # Step 1: Custom Agent - Simulate decision
-                result = agents.simulate_decision(
-                    decision_input,
-                    st.session_state.context,
-                    model=st.session_state.model
-                )
-                st.session_state.current_result = result
-                
-                # Step 2: Classification Agent - Classify risk
-                classification = agents.classify_risk(
-                    decision_input,
-                    result,
-                    model=st.session_state.model
-                )
-                st.session_state.current_classification = classification
-                
-                # Update score
-                score_change = result.get('score_impact', 0)
-                st.session_state.score += score_change
-                
-                # Save to history
-                st.session_state.history.append({
-                    'decision': decision_input,
-                    'result': result,
-                    'classification': classification,
-                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
-                })
-                
-                # Check for new badges
-                new_badges = utils.check_badges(st.session_state.history)
-                for badge in new_badges:
-                    if badge not in st.session_state.badges:
-                        st.session_state.badges.append(badge)
-                
-                st.rerun()
+satisfaction_values = [st.session_state.factory_profile['initial_satisfaction']] + [
+    max(0, min(100, st.session_state.factory_profile['initial_satisfaction'] + sum(
+        entry['result'].get('satisfaction_impact', 0) for entry in st.session_state.history[:i+1]
+    ))) for i in range(len(st.session_state.history))
+]
 
-with decision_col2:
-    st.info("""
-    **💡 İpucu**
+production_values = [st.session_state.factory_profile['initial_production_rate']] + [
+    max(0, min(150, st.session_state.factory_profile['initial_production_rate'] + sum(
+        entry['result'].get('production_rate_impact', 0) for entry in st.session_state.history[:i+1]
+    ))) for i in range(len(st.session_state.history))
+]
+
+# Create plotly figure
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=decisions,
+    y=budget_values,
+    mode='lines+markers',
+    name='Bütçe (TL)',
+    line=dict(color='#667eea', width=3),
+    yaxis="y1"
+))
+
+fig.add_trace(go.Scatter(
+    x=decisions,
+    y=satisfaction_values,
+    mode='lines+markers',
+    name='Memnuniyet (%)',
+    line=dict(color='#764ba2', width=3),
+    yaxis="y2"
+))
+
+fig.add_trace(go.Scatter(
+    x=decisions,
+    y=production_values,
+    mode='lines+markers',
+    name='Üretim Hızı (%)',
+    line=dict(color='#f093fb', width=3),
+    yaxis="y2"
+))
+
+# Update layout
+fig.update_layout(
+    title="Fabrika Performans Trendleri",
+    xaxis=dict(title="Kararlar", tickangle=45),
+    yaxis=dict(
+        title="Bütçe (TL)",
+        titlefont=dict(color="#667eea"),
+        tickfont=dict(color="#667eea"),
+        side="left"
+    ),
+    yaxis2=dict(
+        title="Memnuniyet & Üretim (%)",
+        titlefont=dict(color="#764ba2"),
+        tickfont=dict(color="#764ba2"),
+        anchor="x",
+        overlaying="y",
+        side="right"
+    ),
+    legend=dict(x=0.01, y=0.99),
+    height=400,
+    margin=dict(l=50, r=50, t=50, b=100)
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("---")
+
+# Game Over Check
+if st.session_state.game_over:
+    st.markdown("## 💀 OYUN BİTTİ")
+    st.error(f"### {st.session_state.game_over_reason}")
+    st.markdown("### 📊 Final Skorunuz")
+    st.markdown(f"**Toplam Puan:** {st.session_state.score}")
+    st.markdown(f"**Karar Sayısı:** {len(st.session_state.history)}")
+    st.markdown(f"**Rozet Sayısı:** {len(st.session_state.badges)}")
     
-    Her kararın:
-    - ✅ Faydaları
-    - ⚠️ Riskleri
-    - 💰 Maliyeti
-    vardır.
-    
-    Dengeli düşünün!
-    """)
+    if st.button("🔄 Yeni Oyun Başlat", type="primary"):
+        st.session_state.score = 0
+        st.session_state.history = []
+        st.session_state.badges = []
+        st.session_state.current_result = None
+        st.session_state.current_classification = None
+        st.session_state.factory_profile = utils.generate_factory_profile()
+        st.session_state.budget = st.session_state.factory_profile['initial_budget']
+        st.session_state.satisfaction = st.session_state.factory_profile['initial_satisfaction']
+        st.session_state.production_rate = st.session_state.factory_profile['initial_production_rate']
+        st.session_state.risk_level = st.session_state.factory_profile['initial_risk']
+        st.session_state.game_over = False
+        st.session_state.game_over_reason = ""
+        st.session_state.previous_budget = st.session_state.budget
+        st.session_state.previous_satisfaction = st.session_state.satisfaction
+        st.session_state.previous_production_rate = st.session_state.production_rate
+        st.session_state.previous_risk_level = st.session_state.risk_level
+        st.rerun()
+else:
+    # Main decision area
+    st.markdown("## 🎯 Karar Zamanı")
+    st.markdown("Fabrika yöneticisi olarak kararınızı yazın. AI ajanları gerçekçi sonuçları simüle edecek.")
+
+    # Decision selection
+    decision_col1, decision_col2 = st.columns([2, 1])
+
+    with decision_col1:
+        decision_input = st.text_area(
+            "Kararınızı yazın:",
+            placeholder="Örn: Vardiya sayısını 2'den 3'e çıkar, Makine bakım bütçesini %20 artır, 50 yeni çalışan işe al...",
+            height=100,
+            key="decision_input"
+        )
+        
+        # Quick Action Buttons
+        st.markdown("### ⚡ Hızlı Aksiyonlar")
+        quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
+        
+        quick_actions = [
+            ("Bakımı Ertele", "🔧 Preventif bakımları 3 ay ertele"),
+            ("Çift Vardiyaya Geç", "🏭 Vardiya sistemini 2'den 3'e çıkar"),
+            ("%10 Zam Yap", "💵 Tüm personele %10 maaş zammı ver"),
+            ("Kalite Kontrolü Artır", "📊 Kalite kontrol süreçlerini sıkılaştır")
+        ]
+        
+        quick_buttons = []
+        with quick_col1:
+            if st.button(quick_actions[0][0], key="quick1"):
+                quick_buttons.append(quick_actions[0][1])
+        with quick_col2:
+            if st.button(quick_actions[1][0], key="quick2"):
+                quick_buttons.append(quick_actions[1][1])
+        with quick_col3:
+            if st.button(quick_actions[2][0], key="quick3"):
+                quick_buttons.append(quick_actions[2][1])
+        with quick_col4:
+            if st.button(quick_actions[3][0], key="quick4"):
+                quick_buttons.append(quick_actions[3][1])
+        
+        # Use quick action if selected
+        final_decision = decision_input
+        if quick_buttons:
+            final_decision = quick_buttons[0]  # Use the first clicked quick action
+        
+        if st.button("🚀 Kararı Uygula", type="primary", use_container_width=True) or quick_buttons:
+            if not final_decision or final_decision.strip() == "":
+                st.error("Lütfen bir karar yazın veya hızlı aksiyon seçin!")
+            else:
+                with st.spinner("🤖 AI ajanları sonuçları hesaplıyor..."):
+                    # Step 1: Custom Agent - Simulate decision
+                    result = agents.simulate_decision(
+                        final_decision,
+                        st.session_state.context,
+                        st.session_state.factory_profile,
+                        model=st.session_state.model
+                    )
+                    st.session_state.current_result = result
+                    
+                    # Step 2: Classification Agent - Classify risk
+                    classification = agents.classify_risk(
+                        final_decision,
+                        result,
+                        model=st.session_state.model
+                    )
+                    st.session_state.current_classification = classification
+                    
+                    # Update KPIs
+                    st.session_state.previous_budget = st.session_state.budget
+                    st.session_state.previous_satisfaction = st.session_state.satisfaction
+                    st.session_state.previous_production_rate = st.session_state.production_rate
+                    st.session_state.previous_risk_level = st.session_state.risk_level
+                    
+                    st.session_state.budget += result.get('budget_impact', 0)
+                    st.session_state.satisfaction = max(0, min(100, st.session_state.satisfaction + result.get('satisfaction_impact', 0)))
+                    st.session_state.production_rate = max(0, min(150, st.session_state.production_rate + result.get('production_rate_impact', 0)))
+                    
+                    # Update risk level based on decision
+                    risk_mapping = {"Düşük": 20, "Orta": 50, "Yüksek": 80}
+                    base_risk = risk_mapping.get(result.get('risk_level', 'Orta'), 50)
+                    st.session_state.risk_level = min(100, base_risk + (len(st.session_state.history) * 2))  # Risk accumulates
+                    
+                    # Update score
+                    score_change = result.get('score_impact', 0)
+                    st.session_state.score += score_change
+                    
+                    # Save to history
+                    st.session_state.history.append({
+                        'decision': final_decision,
+                        'result': result,
+                        'classification': classification,
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M")
+                    })
+                    
+                    # Check for new badges
+                    new_badges = utils.check_badges(st.session_state.history)
+                    for badge in new_badges:
+                        if badge not in st.session_state.badges:
+                            st.session_state.badges.append(badge)
+                    
+                    # Game Over Check
+                    if st.session_state.budget <= 0:
+                        st.session_state.game_over = True
+                        st.session_state.game_over_reason = "İFLAS ETTİNİZ! Bütçe tükendi."
+                    elif st.session_state.risk_level >= 90:
+                        st.session_state.game_over = True
+                        st.session_state.game_over_reason = "FABRİKA KAPATILDI! Risk seviyesi çok yüksek."
+                    
+                    st.rerun()
+
+    with decision_col2:
+        st.info("""
+        **💡 İpucu**
+        
+        Her kararın:
+        - ✅ Faydaları
+        - ⚠️ Riskleri
+        - 💰 Maliyeti
+        vardır.
+        
+        Dengeli düşünün!
+        """)
 
 # Results display
 if st.session_state.current_result:
