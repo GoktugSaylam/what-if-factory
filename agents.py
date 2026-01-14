@@ -1,5 +1,6 @@
 """
 io Intelligence Agent wrappers
+v1.2 - IO.net Integration
 """
 import json
 import os
@@ -10,7 +11,11 @@ import prompts
 load_dotenv()
 
 # Check which API to use
-USE_GEMINI = os.getenv("GEMINI_API_KEY") is not None
+# Prioritize io.net if key is present
+USE_IO = os.getenv("IO_API_KEY") is not None
+if USE_IO:
+    os.environ["IO_API_KEY"] = os.environ["IO_API_KEY"].strip()
+USE_GEMINI = not USE_IO and os.getenv("GEMINI_API_KEY") is not None
 
 if USE_GEMINI:
     import google.generativeai as genai
@@ -22,6 +27,13 @@ if USE_GEMINI:
         "top_k": 40,
         "max_output_tokens": 8192,
     }
+else:
+    from openai import OpenAI
+    # Initialize OpenAI client (compatible with io.net)
+    client = OpenAI(
+        api_key=os.getenv("IO_API_KEY") or os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("IO_BASE_URL") or "https://api.openai.com/v1"
+    )
 else:
     from openai import OpenAI
     # Initialize OpenAI client (compatible with io.net)
@@ -76,6 +88,17 @@ FABRİKA PROFİLİ:
                 response_text = response_text.split("```")[1].split("```")[0].strip()
             
             result = json.loads(response_text)
+        else:
+            # Use OpenAI/io.net API
+            response = client.chat.completions.create(
+                model=os.getenv("IO_MODEL") or model,
+                messages=[
+                    {"role": "system", "content": prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)},
+                    {"role": "user", "content": prompts.get_custom_agent_prompt(decision, context)}
+                ],
+                temperature=0.7
+            )
+            result = json.loads(response.choices[0].message.content)
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
@@ -149,6 +172,17 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
+                model=os.getenv("IO_MODEL") or model,
+                messages=[
+                    {"role": "system", "content": prompts.CLASSIFICATION_AGENT_SYSTEM},
+                    {"role": "user", "content": prompts.get_classification_prompt(decision, result)}
+                ],
+                temperature=0.5
+            )
+            classification = json.loads(response.choices[0].message.content)
+        else:
+            # Use OpenAI/io.net API
+            response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": prompts.CLASSIFICATION_AGENT_SYSTEM},
@@ -195,6 +229,17 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
+                model=os.getenv("IO_MODEL") or model,
+                messages=[
+                    {"role": "system", "content": prompts.SUMMARY_AGENT_SYSTEM},
+                    {"role": "user", "content": prompts.get_summary_prompt(history)}
+                ],
+                temperature=0.6
+            )
+            summary = response.choices[0].message.content
+        else:
+            # Use OpenAI/io.net API
+            response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": prompts.SUMMARY_AGENT_SYSTEM},
@@ -237,6 +282,17 @@ def generate_random_event(factory_profile: dict, risk_level: float, week_number:
                 response_text = response_text.split("```")[1].split("```")[0].strip()
             
             event = json.loads(response_text)
+        else:
+            # Use OpenAI/io.net API
+            response = client.chat.completions.create(
+                model=os.getenv("IO_MODEL") or model,
+                messages=[
+                    {"role": "system", "content": "You are an event generator for a factory simulation game."},
+                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}
+                ],
+                temperature=0.8
+            )
+            event = json.loads(response.choices[0].message.content)
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
