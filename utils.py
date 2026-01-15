@@ -112,19 +112,61 @@ def check_badges(history: list) -> list:
     
     return badges
 
+def get_dynamic_quick_actions(budget: float, satisfaction: float, risk: float, production: float) -> list:
+    """
+    Generate dynamic quick actions based on current KPI state
+    """
+    actions = []
+    
+    # Crisis Scenario (Negative Budget)
+    if budget <= 0:
+        actions.extend([
+            ("🆘 Acil Kredi Çek", "🏦 Bankadan acil durum kredisi al (%20 faiz)"),
+            ("📉 Küçülmeye Git", "👥 Personelin %10'unu işten çıkar"),
+            ("🛑 Harcamaları Durdur", "🚫 Tüm gereksiz harcamaları dondur"),
+            ("💸 Varlıkları Sat", "🏭 Kullanılmayan makineleri sat")
+        ])
+        return actions[:4]  # Return only crisis actions if in crisis
+    
+    # High Risk Scenario
+    if risk > 65:
+        actions.append(("🛡️ Güvenlik Denetimi", "👷 Kapsamlı İSG denetimi yap"))
+        actions.append(("📉 Üretimi Yavaşlat", "⚠️ Riskleri azaltmak için hızı düşür"))
+    
+    # Low Satisfaction Scenario
+    if satisfaction < 45:
+        actions.append(("🎉 Moral Etkinliği", "🎈 Çalışanlar için etkinlik düzenle"))
+        actions.append(("💰 Prim Dağıt", "💵 Herkese yarım maaş ikramiye ver"))
+    
+    # Low Production Scenario
+    if production < 80:
+        actions.append(("⚙️ Bakım Yap", "🔧 Makine bakımlarını hemen yap"))
+        actions.append(("⚡ Fazla Mesai", "clock: Bu hafta sonu çalışması koy"))
+    
+    # High Budget Opportunity
+    if budget > 5000000:
+        actions.append(("🤖 Otomasyon Yatırımı", "🦾 Yeni robot kollar satın al"))
+        actions.append(("🎓 Eğitim Programı", "📚 Tüm personele ileri eğitim ver"))
+    
+    # Standard Actions (Fill remaining slots)
+    standard_actions = [
+        ("🔧 Bakımı Ertele", "🔧 Preventif bakımları 3 ay ertele"),
+        ("🏭 Vardiya Artır", "🏭 Vardiya sistemini 2'den 3'e çıkar"),
+        ("👥 Yeni İşe Alım", "👥 10 yeni operatör işe al"),
+        ("📊 Kalite Kontrol", "📊 Kalite kontrol süreçlerini sıkılaştır")
+    ]
+    
+    # Add standard actions if we don't have enough
+    for act in standard_actions:
+        if len(actions) < 4 and act not in actions:
+            actions.append(act)
+            
+    return actions[:4]  # Return top 4 relevant actions
+
+def get_dynamic_quick_actions_placeholder(budget: float, satisfaction: float, risk: float, production: float) -> list:
+    return []
+
 # Pre-defined decision options
-DECISION_OPTIONS = [
-    "🏭 Vardiya sayısını artır (2'den 3'e)",
-    "🔧 Bakım bütçesini %20 azalt",
-    "👥 10 yeni operatör işe al",
-    "📦 Stok seviyesini 2 katına çıkar",
-    "⚙️ Makine parkını yenile (yatırım)",
-    "💵 Personele %15 maaş zammı ver",
-    "🚚 Teslimat süresini 3 güne düşür",
-    "📊 Kalite kontrol adımlarını artır",
-    "🔥 Fazla mesai uygula (hafta sonu dahil)",
-    "🤖 Otomasyon sistemine geç (robot kollar)"
-]
 
 def generate_factory_profile() -> dict:
     """
@@ -183,6 +225,61 @@ def generate_factory_profile() -> dict:
                 "Rekabet fiyat baskısı altında",
                 "Ar-Ge yatırımı zorunlu ama maliyetli"
             ]
+        },
+        {
+            "sector": "Gıda",
+            "product": "Organik Atıştırmalık",
+            "situations": [
+                "Hasat verimi düşük",
+                "Paketleme hijyen sorunu",
+                "Yeni sağlık regülasyonları",
+                "Soğuk zincir kırılması",
+                "Organik sertifika denetimi"
+            ]
+        },
+        {
+            "sector": "Tekstil",
+            "product": "Spor Giyim",
+            "situations": [
+                "Kumaş tedarikinde gecikme",
+                "Moda trendi değişimi",
+                "Dikiş makinesi arızaları",
+                "İşçi sendikası talepleri",
+                "Boya kalitesi sorunu"
+            ]
+        },
+        {
+            "sector": "Otomotiv Yan Sanayi",
+            "product": "Fren Balatası",
+            "situations": [
+                "Ana üretici sipariş artışı",
+                "Hammadde çelik fiyat artışı",
+                "CNC tezgah kalibrasyon hatası",
+                "Kalite kontrol reddi",
+                "Lojistik grevi"
+            ]
+        },
+        {
+            "sector": "Kimya",
+            "product": "Temizlik Ekipmanları",
+            "situations": [
+                "Tehlikeli madde sızıntı riski",
+                "Plastik hammadde zammı",
+                "Karışım formül hatası",
+                "Depolama alanı yetersizliği",
+                "Atık yönetimi cezası"
+            ]
+        },
+        {
+            "sector": "Elektronik",
+            "product": "Akıllı Ev Sensörleri",
+            "situations": [
+                "Çip tedarik krizi",
+                "Lehimleme hatası oranı yüksek",
+                "Yazılım güncelleme sorunu",
+                "Nadir toprak element eksikliği",
+                "Test cihazı kalibrasyonu"
+            ]
         }
     ]
     
@@ -197,9 +294,40 @@ def generate_factory_profile() -> dict:
     technicians = int(blue_collar * 0.25)  # 25% technicians
     maintenance = blue_collar - operators - technicians  # Remaining for maintenance
     
+    
+    # Convert string situations to detailed objects for initial profile
+    initial_issues = []
+    # Possible penalty types
+    penalty_types = ['production', 'budget', 'satisfaction', 'risk']
+    
+    for issue_text in random.sample(selected_sector['situations'], 2):
+        p_type = random.choice(penalty_types)
+        p_val = 0
+        consequence_text = ""
+        
+        if p_type == 'production':
+            p_val = -random.randint(3, 8)
+            consequence_text = f"Her ay Üretim {p_val}% azalır"
+        elif p_type == 'budget':
+            p_val = -random.randint(50000, 150000)
+            consequence_text = f"Her ay Bütçe {p_val:,} TL azalır"
+        elif p_type == 'satisfaction':
+            p_val = -random.randint(2, 5)
+            consequence_text = f"Her ay Memnuniyet {p_val}% azalır"
+        elif p_type == 'risk':
+            p_val = random.randint(3, 7)
+            consequence_text = f"Her ay Risk {p_val}% artar"
+            
+        initial_issues.append({
+            "title": issue_text,
+            "description": "Sektörel bir zorluk yaşanıyor.",
+            "consequence": consequence_text,
+            "penalty": {"type": p_type, "value": p_val}
+        })
+
     profile = {
         "sector": f"{selected_sector['sector']} - {selected_sector['product']}",
-        "current_status": random.choice(selected_sector['situations']),
+        "active_issues": initial_issues,
         "employee_count": {
             "blue_collar": blue_collar,
             "white_collar": white_collar,
@@ -213,6 +341,7 @@ def generate_factory_profile() -> dict:
                 "management": white_collar - int(white_collar * 0.7)
             }
         },
+        "machine_count": int(blue_collar / 4) + random.randint(5, 15), # 1 machine per 4 workers + buffer
         "initial_budget": random.randint(2000000, 8000000),  # 2-8M TL
         "initial_satisfaction": random.randint(60, 85),  # %
         "initial_production_rate": random.randint(70, 90),  # %

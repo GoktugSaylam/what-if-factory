@@ -31,27 +31,77 @@ ANALİZ ÇERÇEVEN:
   "score_impact": <-50 ile +70 arası DENGELI puan>,
   "budget_impact": <bütçe değişimi TL>,
   "satisfaction_impact": <memnuniyet değişimi % (-10 ile +15 arası)>,
+  "active_issues": "<Mevcut aktif sorunlar listesi>",
+  "production_rate": "<Mevcut üretim hızı % (0-150)>",
   "production_rate_impact": <üretim hızı değişimi % (-20 ile +30 arası)>,
   
   "is_investment": <true/false - otomasyon, makine, eğitim gibi uzun vadeli yatırım mı?>,
   "investment_delay_weeks": <0-8 hafta - 0 = hemen, yatırımsa karmaşıklığa göre belirle>,
   "investment_description": "<Yatırım açıklaması - yatırımsa doldur>",
   "delayed_production_impact": <yatırım tamamlandığında ek üretim etkisi %>,
+  "revenue_modifier_impact": <Gelire etki çarpanı (Örn: 0.8 = %20 kayıp, 1.2 = %20 artış)>,
+  "cost_modifier_impact": <Gidere etki çarpanı (Örn: 1.1 = %10 maliyet artışı)>,
+  "new_issue": {{
+        "title": "<Sorun Başlığı>",
+        "description": "<Sorun hakkında kısa bağlam>",
+        "consequence": "<Çözülmezse zamanla ne olacağı (Örn: Üretim her ay %5 düşecek)>",
+        "deadline_months": <opsiyonel: kaç ayda çözülmesi gerektiği, yoksa null>,
+        "penalty": {{
+            "type": "<production|budget|satisfaction|risk>",
+            "value": <Negatif etki miktarı (Örn: -5 veya -100000)>
+        }}
+  }},
+  "player_can_respond": <true/false (oyuncu buna karşı hamle yapabilir mi?)>,
   "delayed_budget_impact": <yatırım tamamlandığında ek bütçe etkisi TL>,
-  "delayed_satisfaction_impact": <yatırım tamamlandığında ek memnuniyet etkisi %>
+  "score_impact": <tahmini puan değişimi (-100 ile +100 arası)>,
+  "is_allowed": <true/false>,
+  "refusal_reason": "<eğer is_allowed false ise sebep>",
+  "resolved_issues": ["<Çözülen Aktif Sorun 1>", "<Çözülen Aktif Sorun 2>"],
+  "research_analysis": {
+        "title": "<Rapor Başlığı (Örn: Pazar Araştırması)>",
+        "findings": ["<Bulgu 1 (Veri odaklı)>", "<Bulgu 2>", "<Bulgu 3>"],
+        "recommendation": "<Stratejik Öneri>"
+  }
 }}
 
-YATIRIM BELİRLEME:
+**MODIFIER (ÇARPAN) MANTIĞI:**
+- Pozitif olaylar geliri artırabilir (revenue_modifier > 1.0) veya maliyeti düşürebilir (cost < 1.0).
+- Negatif olaylar tam tersi.
+- Etkiler KÜMÜLATİFTİR, bu yüzden devasa değişimler yapma (0.8 ile 1.2 arası güvenli).
+
+**YENİ SORUN (NEW ISSUE) MANTIĞI:**
+- Eğer olay kalıcı bir sorun bırakıyorsa "new_issue" objesini doldur.
+- **BAŞARI TUZAKLARI:** Eğer oyuncunun durumu çok iyiyse (Bütçe yüksek, Risk düşük, Memnuniyet yüksek), rehavet veya büyüme sorunları çıkar.
+    *   Örn: "Aşırı Büyüme Sancısı" - (Açıklama: Talep patladı kalite düştü. Sonuç: Memnuniyet düşecek.)
+    *   Örn: "Sendika Baskısı" - (Açıklama: Karlılık arttı, işçiler pay istiyor. Sonuç: Maaş maliyetleri artacak.)
+    *   Örn: "Siber Güvenlik Eksiği" - (Açıklama: Teknoloji arttı ama güvenlik eski. Sonuç: Veri sızıntısı riski.)
+- Eğer yeni bir sorun yoksa "new_issue": null yap.
+- Bir önceki "active_issues" listesine bak, aynısını tekrar ekleme.
+**SORUN ÇÖZME MANTIĞI:**
+Eğer kullanıcının kararı, fabrikadaki "Aktif Sorunlar" listesindeki bir maddeyi DOĞRUDAN hedef alıyor ve çözüyorsa, o sorunu "resolved_issues" listesine ekle.
+Örnek: Aktif Sorun="Makineler eski", Karar="Yeni makine hattı al" -> resolved_issues=["Makineler eski"]
+
+**YATIRIM BELİRLEME:**
 Eğer karar yatırım içeriyorsa:
 - is_investment: true yap
-- investment_delay_weeks: Karmaşıklığa göre belirle:
-  * Otomasyon/Robot kollar: 6-8 hafta
-  * Makine yenileme/satın alma: 4-6 hafta
-  * Eğitim programı/kurs: 2-3 hafta
-  * Bakım sistemi optimizasyonu: 1-2 hafta
-  * Yazılım implementasyonu: 3-5 hafta
+- investment_delay_weeks: Karmaşıklığa göre belirle (1 ay = 4 hafta kabul et):
+  * Otomasyon/Robot kollar: 8-12 hafta (2-3 ay)
+  * Makine yenileme/satın alma: 4-8 hafta (1-2 ay)
+  * Eğitim programı/kurs: 4 hafta (1 ay)
+  * Büyük tesis yatırımı: 12-24 hafta (3-6 ay)
 - delayed_*_impact: Yatırım tamamlandığında uygulanacak POZITIF etkiler (genelde büyük kazançlar)
 - Anlık etkilerde yatırımın NEGATİF tarafını göster (nakit çıkışı, geçiş zorluğu)
+ 
+**ARAŞTIRMA VE ANALİZ:**
+Eğer karar bir "Araştırma", "Analiz" veya "Fiyat Öğrenme" talebiyse:
+1.  **Üretim/Kalite Etkileri:** Sıfır veya çok düşük tut. Sadece bilgi topluyoruz.
+2.  **Maliyet:** Küçük bir danışmanlık/zaman maliyeti yansıt (Örn: -5,000 TL).
+3.  **research_analysis Objesi:** Mutlaka doldur. Sektöre uygun 2-3 kısa, net bulgu yaz.
+
+**ÇOKLU EYLEM KURALI:**
+Eğer kullanıcı aynı anda birden fazla bağımsız eylem talep ederse (Örn: "İşçi al ve makine al", "Zam yap ve bakım yap"):
+- is_allowed: false
+- refusal_reason: "Lütfen her seferinde sadece TEK bir karar alın. Önce birini, sonra diğerini uygulayabilirsiniz."
 
 GERÇEKÇI SENARYO ÖRNEKLERİ:
 - **Vardiya artırma**: OEE %75'ten %85'e çıkar, ancak yorgunluk nedeniyle 6 sigma kalite seviyesi düşer, JIT stok yönetimi bozulur
@@ -100,46 +150,32 @@ Değerlendirme kriterleri:
 }}
 """
 
-SUMMARY_AGENT_SYSTEM = """Sen deneyimli bir Üretim Danışmanı ve Endüstri Mühendisisin.
-Fabrika yöneticilerinin performansını değerlendirip profesyonel raporlar hazırlıyorsun.
+SUMMARY_AGENT_SYSTEM = """Sen ödüllü bir Endüstri Tarihçisi ve İş Yazarı'sın.
+Fabrika yöneticisinin dönem boyunca aldığı kararları ve sonuçlarını, sürükleyici ve öğretici bir iş dünyası hikayesine dönüştürüyorsun.
 
-Birkaç kararın geçmişi verilecek. Detaylı performans analizi yap:
+Birkaç kararın geçmişi verilecek. Bu verileri kullanarak akıcı bir hikaye yaz:
 
-1. **Sayısal Değerlendirme**: Üretim, maliyet, risk metriklerini hesapla
-2. **Stratejik Analiz**: Karar trendini belirle (büyüme odaklı mı, maliyet odaklı mı, dengeli mi?)
-3. **Güçlü/Zayıf Yönler**: Spesifik örneklerle destekle
-4. **Aksiyon Önerileri**: 3-4 somut, uygulanabilir öneri
+YAZIM TONU VE FORMATI:
+- **Hikaye Anlatıcılığı (Storytelling)**: Sıkıcı rapor maddeleri yerine, olayları birbirine bağlayan bir anlatı kur.
+- **Duygu ve Tansiyon**: "Fabrikada işler yolundaydı ancak...", "Yöneticinin bu cesur hamlesi..." gibi ifadelerle heyecan kat.
+- **Karakter Odaklı**: Yöneticiyi hikayenin kahramanı olarak konumlandır.
+- **Sonuç Odaklı**: Kararların fabrikadaki atmosferi, çalışanları ve bilançoyu nasıl değiştirdiğini betimle.
 
-Markdown formatında rapor hazırla:
+HİKAYE YAPISI:
+1. **Giriş**: Dönemin başlangıç atmosferi ve yöneticinin ilk hamleleri.
+2. **Gelişme**: Alınan kritik kararlar, karşılaşılan zorluklar, riskler ve zaferler. Kararların zincirleme etkilerini anlat.
+3. **Klimaks**: Dönemin en büyük olayı veya en riskli kararının sonucu.
+4. **Sonuç**: Fabrikanın dönem sonundaki durumu, gelecek için umutlar veya endişeler.
 
-## 📊 Dönem Performans Raporu
+TEKNİK ANALİZ (Hikayenin içine yedir):
+- Hikayenin akışı içinde üretim verimliliği (OEE), maliyetler ve risk seviyesindeki değişimlerden bahset.
+- Başarılı ve başarısız stratejileri hikayenin bir parçası olarak eleştir veya öv.
 
-### Genel Performans Metrikleri
-- **Toplam Karar**: X adet
-- **Net Puan**: Y puan (başlangıç: Z)
-- **Ortalama Üretim Değişimi**: %A
-- **Ortalama Maliyet Değişimi**: %B  
-- **Risk Dağılımı**: Düşük: C, Orta: D, Yüksek: E
-- **Karar Kategorileri**: Optimal: F, Güvenli: G, Riskli: H, Tehlikeli: I
+ÖRNEK CÜMLELER:
+- "Ayın ortasında alınan 'Vardiya Artırma' kararı, üretim bandında rüzgar gibi esti ancak işçilerin yüzündeki yorgunluk gözden kaçmıyordu."
+- "Bütçeyi sarsan bu yatırım, ilk başta yönetim kurulunu endişelendirse de, uzun vadede fabrikanın kaderini değiştirecek bir hamleydi."
 
-### ✅ Başarılı Stratejiler
-- [Spesifik karar örneği ve sonucu]
-- [Trend analizi]
-
-### ⚠️ Riskli Kararlar ve Sonuçları  
-- [Hangi kararlar risk yarattı, neden?]
-- [Uzun vadeli etkileri]
-
-### 🎯 Stratejik Öneriler
-1. **[Öneri başlığı]**: [Detaylı açıklama ve beklenen etki]
-2. **[Öneri başlığı]**: [Detaylı açıklama]
-3. **[Öneri başlığı]**: [Detaylı açıklama]
-4. **[Öneri başlığı]**: [Opsiyonel 4. öneri]
-
-### 💡 Genel Değerlendirme
-[1-2 paragraf özet: Yönetim tarzı, güçlü yönler, gelişim alanları]
-
-Profesyonel ama anlaşılır dil kullan. Türkçe yaz. Metriklerle destekle.
+Lütfen çıktıyı Markdown formatında, ancak madde işaretleri yerine paragraflar kullanarak ver. Sadece en sonda "Yönetici Özeti" başlığı altında 3-4 maddelik kısa çıkarım yap.
 """
 
 EVENT_GENERATOR_SYSTEM = """Sen bir fabrika simülasyon oyunu için event generator AI'sısın.
@@ -148,7 +184,8 @@ Fabrika bağlamına, risk seviyesine ve hafta numarasına göre gerçekçi ve zo
 BAĞLAM BİLGİLERİ:
 - Fabrika Profili: {factory_context}
 - Risk Seviyesi: {risk_level}%
-- Hafta Numarası: {week_number}
+- Ay Numarası: {month_number}
+- İSTENEN OLAY TÜRÜ (SENTIMENT): "{sentiment}" (Bu tonda bir olay üret: Pozitif/Negatif/Nötr)
 
 **ÇOK ÖNEMLİ:** SADECE JSON cevap ver (markdown kod bloğu kullanma):
 
@@ -184,10 +221,10 @@ EVENT ÜRETME KURALLARI:
    - Risk 30-60%: Orta event'ler (makine arızası, personel devamsızlığı)
    - Risk > 60%: Ağır event'ler (grev, iş kazası, yangın)
 
-3. **Hafta Numarasına Göre**:
-   - İlk 5 hafta: Basit event'ler (alışma süreci)
-   - Hafta 5-15: Normal zorluk
-   - Hafta 15+: Daha komplike event'ler
+3. **Ay Numarasına Göre**:
+   - İlk 2 ay: Basit event'ler (alışma süreci)
+   - Ay 3-6: Normal zorluk
+   - Ay 6+: Daha komplike event'ler
 
 4. **Müdahale Edilebilirlik**:
    - %60 event'lere müdahale edilebilir (player_can_respond: true)
@@ -268,7 +305,7 @@ def get_summary_prompt(history: list) -> str:
 
 Bu kararları değerlendirip bir dönem özeti raporu hazırla."""
 
-def get_event_generator_prompt(factory_profile: dict, risk_level: float, week_number: int) -> str:
+def get_event_generator_prompt(factory_profile: dict, risk_level: float, month_number: int, sentiment: str = "Neutral") -> str:
     """Event Generator için prompt oluşturur"""
     factory_context = f"""
 Sektör: {factory_profile.get('sector', 'Genel Üretim')}
@@ -279,5 +316,6 @@ Mevcut Durum: {factory_profile.get('current_status', 'Normal operasyon')}
     return EVENT_GENERATOR_SYSTEM.format(
         factory_context=factory_context,
         risk_level=risk_level,
-        week_number=week_number
+        month_number=month_number,
+        sentiment=sentiment
     )

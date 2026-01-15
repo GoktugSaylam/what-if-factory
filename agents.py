@@ -11,13 +11,11 @@ import prompts
 load_dotenv()
 
 # Check which API to use
-# Prioritize io.net if key is present
-USE_IO = os.getenv("IO_API_KEY") is not None
-if USE_IO:
-    os.environ["IO_API_KEY"] = os.environ["IO_API_KEY"].strip()
-USE_GEMINI = not USE_IO and os.getenv("GEMINI_API_KEY") is not None
+# Prioritize Gemini for Hackathon stability if key is present
+USE_GEMINI = os.getenv("GEMINI_API_KEY") is not None
 
 if USE_GEMINI:
+    print("USING GEMINI API")
     import google.generativeai as genai
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     # Configure Gemini model with JSON response
@@ -26,6 +24,7 @@ if USE_GEMINI:
         "top_p": 0.95,
         "top_k": 40,
         "max_output_tokens": 8192,
+        "response_mime_type": "application/json",
     }
 else:
     from openai import OpenAI
@@ -34,13 +33,7 @@ else:
         api_key=os.getenv("IO_API_KEY") or os.getenv("OPENAI_API_KEY"),
         base_url=os.getenv("IO_BASE_URL") or "https://api.openai.com/v1"
     )
-else:
-    from openai import OpenAI
-    # Initialize OpenAI client (compatible with io.net)
-    client = OpenAI(
-        api_key=os.getenv("IO_API_KEY") or os.getenv("OPENAI_API_KEY"),
-        base_url=os.getenv("IO_BASE_URL") or "https://api.openai.com/v1"
-    )
+
 
 def simulate_decision(decision: str, context: str = "", factory_profile: dict = None, model: str = "gpt-4") -> dict:
     """
@@ -76,18 +69,17 @@ FABRİKA PROFİLİ:
         
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+            gemini_model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
             prompt = f"{prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)}\n\n{prompts.get_custom_agent_prompt(decision, context)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
             
-            # Extract JSON from response (handle markdown code blocks)
-            response_text = response.text.strip()
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            result = json.loads(response_text)
+            # Extract JSON from response (JSON mode handles formatting)
+            try:
+                result = json.loads(response.text)
+            except Exception:
+                # Fallback implementation if JSON mode fails (unlikely)
+                response_text = response.text.strip()
+                result = json.loads(response_text)
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
@@ -99,18 +91,7 @@ FABRİKA PROFİLİ:
                 temperature=0.7
             )
             result = json.loads(response.choices[0].message.content)
-        else:
-            # Use OpenAI/io.net API
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)},
-                    {"role": "user", "content": prompts.get_custom_agent_prompt(decision, context)}
-                ],
-                temperature=0.7,
-                response_format={"type": "json_object"}
-            )
-            result = json.loads(response.choices[0].message.content)
+
         
         return result
     except Exception as e:
@@ -128,7 +109,7 @@ FABRİKA PROFİLİ:
             "cost_change_percent": 0,
             "cost_change_daily_tl": 0,
             "risk_level": "Orta",
-            "risk_explanation": "Simülasyon hatası oluştu.",
+            "risk_explanation": "Simülasyon hatası oluştu. Lütfen tekrar deneyin.",
             "side_effects": ["API hatası"],
             "score_impact": 0,
             "budget_impact": 0,
@@ -139,7 +120,8 @@ FABRİKA PROFİLİ:
             "investment_description": "",
             "delayed_production_impact": 0,
             "delayed_budget_impact": 0,
-            "delayed_satisfaction_impact": 0
+            "delayed_satisfaction_impact": 0,
+            "research_analysis": None 
         }
 
 def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
@@ -180,18 +162,7 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
                 temperature=0.5
             )
             classification = json.loads(response.choices[0].message.content)
-        else:
-            # Use OpenAI/io.net API
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": prompts.CLASSIFICATION_AGENT_SYSTEM},
-                    {"role": "user", "content": prompts.get_classification_prompt(decision, result)}
-                ],
-                temperature=0.5,
-                response_format={"type": "json_object"}
-            )
-            classification = json.loads(response.choices[0].message.content)
+
         
         return classification
     except Exception as e:
@@ -237,31 +208,21 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
                 temperature=0.6
             )
             summary = response.choices[0].message.content
-        else:
-            # Use OpenAI/io.net API
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": prompts.SUMMARY_AGENT_SYSTEM},
-                    {"role": "user", "content": prompts.get_summary_prompt(history)}
-                ],
-                temperature=0.6
-            )
-            summary = response.choices[0].message.content
+
         
         return summary
     except Exception as e:
         print(f"Error in generate_summary: {e}")
         return f"## Özet Hatası\n\nRapor oluşturulurken hata oluştu: {str(e)}"
 
-def generate_random_event(factory_profile: dict, risk_level: float, week_number: int, model: str = "gpt-4") -> dict:
+def generate_random_event(factory_profile: dict, risk_level: float, month_number: int, model: str = "gpt-4", sentiment: str = "Neutral") -> dict:
     """
     Event Generator Agent: Generates contextual random events
     
     Args:
         factory_profile: Factory profile dict
         risk_level: Current risk level (0-100)
-        week_number: Current week number
+        month_number: Current month number
         model: Model to use
     
     Returns:
@@ -271,7 +232,7 @@ def generate_random_event(factory_profile: dict, risk_level: float, week_number:
         if USE_GEMINI:
             # Use Gemini API
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
-            prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
+            prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
             
             # Extract JSON from response (handle markdown code blocks)
@@ -288,23 +249,12 @@ def generate_random_event(factory_profile: dict, risk_level: float, week_number:
                 model=os.getenv("IO_MODEL") or model,
                 messages=[
                     {"role": "system", "content": "You are an event generator for a factory simulation game."},
-                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}
+                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment)}
                 ],
                 temperature=0.8
             )
             event = json.loads(response.choices[0].message.content)
-        else:
-            # Use OpenAI/io.net API
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are an event generator for a factory simulation game."},
-                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}
-                ],
-                temperature=0.8,
-                response_format={"type": "json_object"}
-            )
-            event = json.loads(response.choices[0].message.content)
+
         
         # Return None if no event
         if not event.get('has_event', False):
