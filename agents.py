@@ -1,21 +1,23 @@
 """
 io Intelligence Agent wrappers
-v1.2 - IO.net Integration
+v1.3 - IO.net Integration fixes
 """
 import json
 import os
 from dotenv import load_dotenv
 import prompts
+import re
 
 # Load environment variables
 load_dotenv()
 
 # Check which API to use
-# Prioritize Gemini for Hackathon stability if key is present
-USE_GEMINI = os.getenv("GEMINI_API_KEY") is not None
+# Prioritize IO.net Intelligence if key is present
+USE_IONET = os.getenv("IO_API_KEY") is not None
 
-if USE_GEMINI:
+if not USE_IONET and os.getenv("GEMINI_API_KEY"):
     print("USING GEMINI API")
+    USE_GEMINI = True
     import google.generativeai as genai
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     # Configure Gemini model with JSON response
@@ -27,26 +29,79 @@ if USE_GEMINI:
         "response_mime_type": "application/json",
     }
 else:
+    print("USING IO.NET INTELLIGENCE API")
+    USE_GEMINI = False
     from openai import OpenAI
     # Initialize OpenAI client (compatible with io.net)
     client = OpenAI(
-        api_key=os.getenv("IO_API_KEY") or os.getenv("OPENAI_API_KEY"),
-        base_url=os.getenv("IO_BASE_URL") or "https://api.openai.com/v1"
+        api_key=os.getenv("IO_API_KEY"),
+        base_url=os.getenv("IO_BASE_URL")
     )
+
+def parse_json_response(response_text: str) -> dict:
+    """
+    Robustly parses JSON from LLM response.
+    Handles markdown code blocks, surrounding text, and unquoted keys.
+    """
+    cleaned = response_text.strip()
+    
+    # 1. Strip Markdown Code Blocks
+    if "```" in cleaned:
+        matches = re.findall(r"```(?:json)?\s*(.*?)\s*```", cleaned, re.DOTALL | re.IGNORECASE)
+        if matches:
+            cleaned = matches[0].strip()
+        else:
+            cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+
+    # 2. Strip Comments (// and /* */)
+    # Be careful with URLs (http://), but in this factory context, text usually doesn't have URLs.
+    # We use a pattern that requires whitespace before // to be safer: \s//
+    # Or start of line.
+    cleaned = re.sub(r'(^|\s)//.*', '', cleaned)
+    cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+
+    # 3. Strip Trailing Commas (Common LLM error: {"a":1,})
+    cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+
+    # 4. Extract JSON object
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    
+    if start != -1 and end != -1:
+        cleaned = cleaned[start:end+1]
+    elif start == -1:
+         # Fallback: maybe it's a list?
+         start_arr = cleaned.find("[")
+         end_arr = cleaned.rfind("]")
+         if start_arr != -1 and end_arr != -1:
+             cleaned = cleaned[start_arr:end_arr+1]
+         else:
+             raise ValueError("No JSON object found (missing '{')")
+
+    # 5. Try Parse & Repair
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        try:
+            # Common Error: Unquoted keys {key: "value"}
+            repaired = re.sub(r'(?<!")(\b\w+\b)(?=\s*:)', r'"\1"', cleaned)
+            return json.loads(repaired)
+        except:
+             try:
+                 # Single quotes to double quotes
+                 repaired_quotes = cleaned.replace("'", '"')
+                 return json.loads(repaired_quotes)
+             except:
+                 raise ValueError(f"JSON parse failed. Raw: {cleaned[:100]}...")
+
+def clean_json_response(response_text: str) -> str:
+    """DEPRECATED: Use parse_json_response"""
+    return response_text # Dummy filler to avoid breaking imports if any, but we will update callers.
 
 
 def simulate_decision(decision: str, context: str = "", factory_profile: dict = None, model: str = "gpt-4") -> dict:
     """
     Custom Agent: Simulates factory decision outcomes
-    
-    Args:
-        decision: The decision made by user
-        context: Optional factory context from uploaded files
-        factory_profile: Factory profile dict
-        model: Model to use (default gpt-4)
-    
-    Returns:
-        dict: Simulation results
     """
     try:
         factory_context = ""
@@ -72,14 +127,7 @@ FABRİKA PROFİLİ:
             gemini_model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
             prompt = f"{prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)}\n\n{prompts.get_custom_agent_prompt(decision, context)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
-            
-            # Extract JSON from response (JSON mode handles formatting)
-            try:
-                result = json.loads(response.text)
-            except Exception:
-                # Fallback implementation if JSON mode fails (unlikely)
-                response_text = response.text.strip()
-                result = json.loads(response_text)
+            response_text = response.text
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
@@ -88,29 +136,38 @@ FABRİKA PROFİLİ:
                     {"role": "system", "content": prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)},
                     {"role": "user", "content": prompts.get_custom_agent_prompt(decision, context)}
                 ],
-                temperature=0.7
+                temperature=0.3,
+                top_p=0.9,
+                frequency_penalty=0.5,
+                presence_penalty=0.3,
+                response_format={"type": "json_object"}
             )
-            result = json.loads(response.choices[0].message.content)
-
+            response_text = response.choices[0].message.content
+            
+        print(f"DEBUG: Raw response: {repr(response_text)}")
+            
+        # Clean and parsing
+        result = parse_json_response(response_text)
         
         return result
+
     except Exception as e:
         print(f"====== ERROR in simulate_decision ======")
         print(f"Error: {e}")
         print(f"Decision: {decision}")
-        if 'response_text' in locals():
-            print(f"Response text: {response_text[:500]}")
         import traceback
         traceback.print_exc()
         print(f"====== END ERROR ======")
-        # Fallback response
+        
+        # Fallback response with ACTUAL error message for debugging
+        err_msg = str(e)
         return {
             "production_change_percent": 0,
             "cost_change_percent": 0,
             "cost_change_daily_tl": 0,
             "risk_level": "Orta",
-            "risk_explanation": "Simülasyon hatası oluştu. Lütfen tekrar deneyin.",
-            "side_effects": ["API hatası"],
+            "risk_explanation": f"API Hatası: {err_msg[:150]}... (Loglara bakınız)",
+            "side_effects": ["API Bağlantı Sorunu", err_msg[:50]],
             "score_impact": 0,
             "budget_impact": 0,
             "satisfaction_impact": 0,
@@ -127,14 +184,6 @@ FABRİKA PROFİLİ:
 def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
     """
     Classification Agent: Classifies decision risk
-    
-    Args:
-        decision: The decision made
-        result: Simulation result from Custom Agent
-        model: Model to use
-    
-    Returns:
-        dict: Classification result
     """
     try:
         if USE_GEMINI:
@@ -142,15 +191,7 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
             prompt = f"{prompts.CLASSIFICATION_AGENT_SYSTEM}\n\n{prompts.get_classification_prompt(decision, result)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
-            
-            # Extract JSON from response (handle markdown code blocks)
-            response_text = response.text.strip()
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            classification = json.loads(response_text)
+            response_text = response.text
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
@@ -159,36 +200,31 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
                     {"role": "system", "content": prompts.CLASSIFICATION_AGENT_SYSTEM},
                     {"role": "user", "content": prompts.get_classification_prompt(decision, result)}
                 ],
-                temperature=0.5
+                temperature=0.3,
+                top_p=0.9,
+                frequency_penalty=0.3,
+                response_format={"type": "json_object"}
             )
-            classification = json.loads(response.choices[0].message.content)
+            response_text = response.choices[0].message.content
 
+        # Clean and parse
+        classification = parse_json_response(response_text)
         
         return classification
     except Exception as e:
         print(f"Error in classify_risk: {e}")
-        print(f"Response text (if available): {response_text if 'response_text' in locals() else 'N/A'}")
-        import traceback
-        traceback.print_exc()
         return {
             "category": "Güvenli",
-            "explanation": "Sınıflandırma hatası.",
+            "explanation": f"Sınıflandırma hatası: {str(e)}",
             "recommendation": ""
         }
 
 def generate_summary(history: list, model: str = "gpt-4") -> str:
     """
     Summary Agent: Generates period summary report
-    
-    Args:
-        history: List of decision history
-        model: Model to use
-    
-    Returns:
-        str: Markdown formatted summary report
     """
     if not history:
-        return "## Henüz karar alınmadı\n\nKarar aldık ça burada özet göreceksiniz."
+        return "## Henüz karar alınmadı\n\nKarar aldıkça burada özet göreceksiniz."
     
     try:
         if USE_GEMINI:
@@ -208,53 +244,40 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
                 temperature=0.6
             )
             summary = response.choices[0].message.content
-
         
         return summary
     except Exception as e:
         print(f"Error in generate_summary: {e}")
         return f"## Özet Hatası\n\nRapor oluşturulurken hata oluştu: {str(e)}"
 
-def generate_random_event(factory_profile: dict, risk_level: float, month_number: int, model: str = "gpt-4", sentiment: str = "Neutral") -> dict:
+def generate_random_event(factory_profile: dict, risk_level: float, month_number: int, model: str = "gpt-4", sentiment: str = "Neutral", event_type: str = None) -> dict:
     """
     Event Generator Agent: Generates contextual random events
-    
-    Args:
-        factory_profile: Factory profile dict
-        risk_level: Current risk level (0-100)
-        month_number: Current month number
-        model: Model to use
-    
-    Returns:
-        dict: Event data or None if no event
     """
     try:
         if USE_GEMINI:
             # Use Gemini API
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
-            prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
+            prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment, event_type)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
-            
-            # Extract JSON from response (handle markdown code blocks)
-            response_text = response.text.strip()
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            event = json.loads(response_text)
+            response_text = response.text
         else:
             # Use OpenAI/io.net API
             response = client.chat.completions.create(
                 model=os.getenv("IO_MODEL") or model,
                 messages=[
-                    {"role": "system", "content": "You are an event generator for a factory simulation game."},
-                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment)}
+                    {"role": "system", "content": "You are an event generator. Respond in JSON."},
+                    {"role": "user", "content": prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment, event_type)}
                 ],
-                temperature=0.8
+                temperature=0.4,
+                top_p=0.95,
+                frequency_penalty=0.5,
+                response_format={"type": "json_object"}
             )
-            event = json.loads(response.choices[0].message.content)
+            response_text = response.choices[0].message.content
 
+        # Clean and parse
+        event = parse_json_response(response_text)
         
         # Return None if no event
         if not event.get('has_event', False):
@@ -263,5 +286,4 @@ def generate_random_event(factory_profile: dict, risk_level: float, month_number
         return event
     except Exception as e:
         print(f"Error in generate_random_event: {e}")
-        # Return None on error (no event)
         return None

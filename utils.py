@@ -64,13 +64,13 @@ def calculate_level(score: int) -> tuple:
         tuple: (level_name, level_number, progress_to_next_level)
     """
     if score < 0:
-        return "Trainee", 0, 0
+        return "Stajyer", 0, 0
     elif score < 200:
-        return "Junior Manager", 1, score / 200
+        return "Genç Yönetici", 1, score / 200
     elif score < 500:
-        return "Middle Manager", 2, (score - 200) / 300
+        return "Orta Düzey Yönetici", 2, (score - 200) / 300
     else:
-        return "Senior Manager", 3, 1.0
+        return "Kıdemli Yönetici", 3, 1.0
 
 def calculate_score_change(result: dict) -> int:
     """
@@ -178,107 +178,52 @@ def generate_factory_profile() -> dict:
     sectors = [
         {
             "sector": "Otomotiv Yan Sanayi",
-            "product": "Vites kutusu üretiyor",
+            "product": "Fren Diskleri & Balata",
             "situations": [
-                "Siparişler patladı ama makineler eski",
-                "Tedarik zinciri kırılgan, hammadde fiyatları arttı",
-                "Kalite şikayetleri artıyor, müşteri kaybı riski var",
-                "Enerji maliyetleri %30 arttı, sürdürülebilirlik baskısı var"
+                {"title": "Ana üretici siparişleri %20 artırdı, kapasite yetersiz", "desc": "Tofaş/Ford gibi ana üreticiler acil ek üretim talep ediyor, mevcut hatlar yetmiyor."},
+                {"title": "Çelik hammadde fiyatlarında ani artış", "desc": "Global çelik borsasındaki dalgalanma maliyetleri direkt vurdu."},
+                {"title": "CNC tezgahlarında kalibrasyon sorunları var", "desc": "Hassas işleme yapan robotlarda mikron seviyesinde sapmalar tespit edildi."},
+                {"title": "ISO 16949 denetimi yaklaşıyor, belge eksikleri var", "desc": "Kalite departmanı denetim öncesi panik halinde, prosedürler güncel değil."}
             ]
         },
         {
-            "sector": "Tekstil",
-            "product": "Denim kumaş üretiyor",
+            "sector": "Tekstil & Konfeksiyon",
+            "product": "Denim Pantolon Üretimi",
             "situations": [
-                "Moda trendleri değişiyor, stok yönetimi kritik",
-                "Çevre düzenlemeleri sıkılaştı, yeşil üretim zorunlu",
-                "Çalışan memnuniyeti düşük, grev riski var",
-                "İhracat pazarı daraldı, iç piyasa odaklı dönüşüm gerekli"
+                {"title": "Boya kalitesinde dalgalanmalar var, iade oranı arttı", "desc": "Son parti kumaşlarda renk solması şikayetleri geliyor, yıkama hanede sorun var."},
+                {"title": "İhracat müşterisi 'Sürdürülebilirlik Belgesi' istiyor", "desc": "Avrupalı müşteri karbon ayak izi raporu olmadan alımı durduracağını belirtti."},
+                {"title": "Mevsimsel işçi bulmakta zorlanılıyor", "desc": "Hasat zamanı geldiği için operatörlerin çoğu işi bırakıp memlekete gidiyor."},
+                {"title": "Pamuk fiyatları global pazarda yükselişte", "desc": "Hindistan'daki kuraklık nedeniyle iplik fiyatlarına %15 zam geldi."}
             ]
         },
         {
-            "sector": "Gıda İşleme",
-            "product": "Konserve gıda üretiyor",
+            "sector": "Metal İşleme",
+            "product": "Endüstriyel Raf Sistemleri",
             "situations": [
-                "Hammaddeler bozulabilir, hijyen kritik",
-                "Düzenleyici standartlar değişiyor",
-                "Tedarik zinciri kesintiye uğradı",
-                "Paketleme teknolojisi eski, verimlilik düşük"
+                {"title": "Kaynak robotlarında sık arıza yaşanıyor", "desc": "Otomatik kaynak hattında duruşlar arttı, bakım ekibi yetersiz kalıyor."},
+                {"title": "Lojistik maliyetleri kar marjını eritiyor", "desc": "Nakliye fiyatları arttığı için karlılık %5 seviyesine kadar düştü."},
+                {"title": "İş güvenliği uzmanı havalandırma sistemi uyarısı yaptı", "desc": "Atölye içindeki duman seviyesi yasal sınırın üzerinde, acil yatırım lazım."},
+                {"title": "Büyük bir depo projesi için acil teklif isteniyor", "desc": "Getir/Amazon deposu için devasa bir ihale var ama mühendislik ekibi dolu."}
             ]
         },
         {
-            "sector": "Elektronik",
-            "product": "Akıllı telefon şarj cihazı üretiyor",
+            "sector": "Plastik Enjeksiyon",
+            "product": "Beyaz Eşya Parçaları",
             "situations": [
-                "Teknoloji hızla değişiyor, ürün yaşam döngüsü kısa",
-                "Çip krizi devam ediyor, tedarik sorunları var",
-                "Rekabet yoğun, fiyat baskısı yüksek",
-                "Kalite standartları çok yüksek, tolerans sıfır"
+                {"title": "Enjeksiyon kalıplarının bakımı gecikti", "desc": "Kalıplarda çapaklanma başladı, parça kalitesi düşüyor."},
+                {"title": "Petrol fiyatları arttığı için granül hammadde pahalandı", "desc": "Plastik hammaddesi petrole endeksli olduğu için maliyetler fırladı."},
+                {"title": "Enerji maliyetleri üretimi kârsız hale getiriyor", "desc": "Elektrik faturası geçen aya göre 2 katına çıktı, makinalar çok yakıyor."},
+                {"title": "Geri dönüştürülmüş hammadde kullanımı zorunluluğu geldi", "desc": "AB yasaları gereği üretimde %30 recyle malzeme şartı getirildi."}
             ]
         },
         {
-            "sector": "İlaç",
-            "product": "Jenerik ilaç üretiyor",
+            "sector": "Gıda Ambalaj",
+            "product": "Oluklu Mukavva Kutu",
             "situations": [
-                "Düzenleyici onay süreçleri uzun",
-                "Hammadde saflık standartları çok yüksek",
-                "Rekabet fiyat baskısı altında",
-                "Ar-Ge yatırımı zorunlu ama maliyetli"
-            ]
-        },
-        {
-            "sector": "Gıda",
-            "product": "Organik Atıştırmalık",
-            "situations": [
-                "Hasat verimi düşük",
-                "Paketleme hijyen sorunu",
-                "Yeni sağlık regülasyonları",
-                "Soğuk zincir kırılması",
-                "Organik sertifika denetimi"
-            ]
-        },
-        {
-            "sector": "Tekstil",
-            "product": "Spor Giyim",
-            "situations": [
-                "Kumaş tedarikinde gecikme",
-                "Moda trendi değişimi",
-                "Dikiş makinesi arızaları",
-                "İşçi sendikası talepleri",
-                "Boya kalitesi sorunu"
-            ]
-        },
-        {
-            "sector": "Otomotiv Yan Sanayi",
-            "product": "Fren Balatası",
-            "situations": [
-                "Ana üretici sipariş artışı",
-                "Hammadde çelik fiyat artışı",
-                "CNC tezgah kalibrasyon hatası",
-                "Kalite kontrol reddi",
-                "Lojistik grevi"
-            ]
-        },
-        {
-            "sector": "Kimya",
-            "product": "Temizlik Ekipmanları",
-            "situations": [
-                "Tehlikeli madde sızıntı riski",
-                "Plastik hammadde zammı",
-                "Karışım formül hatası",
-                "Depolama alanı yetersizliği",
-                "Atık yönetimi cezası"
-            ]
-        },
-        {
-            "sector": "Elektronik",
-            "product": "Akıllı Ev Sensörleri",
-            "situations": [
-                "Çip tedarik krizi",
-                "Lehimleme hatası oranı yüksek",
-                "Yazılım güncelleme sorunu",
-                "Nadir toprak element eksikliği",
-                "Test cihazı kalibrasyonu"
+                {"title": "Kağıt tedarikinde global kıtlık var", "desc": "Kağıt fabrikaları siparişlere yetişemiyor, stoklar sadece 3 günlük kaldı."},
+                {"title": "Müşteriler daha hızlı teslimat talep ediyor", "desc": "E-ticaret patlaması nedeniyle müşteriler 'dün sipariş verdim bugün gelsin' modunda."},
+                {"title": "Matbaa makinesinde renk tutmuyor", "desc": "Baskı makinesinin silindirleri aşınmış, logolar yanlış renk çıkıyor."},
+                {"title": "Depoda nem sorunu oluştu, stoklar risk altında", "desc": "Son yağmurlarda depo çatısı aktı, mukavvalar yumuşamaya başladı."}
             ]
         }
     ]
@@ -300,29 +245,45 @@ def generate_factory_profile() -> dict:
     # Possible penalty types
     penalty_types = ['production', 'budget', 'satisfaction', 'risk']
     
-    for issue_text in random.sample(selected_sector['situations'], 2):
+    for issue_data in random.sample(selected_sector['situations'], 2):
         p_type = random.choice(penalty_types)
         p_val = 0
         consequence_text = ""
+        resolution_cost = {}
         
         if p_type == 'production':
-            p_val = -random.randint(3, 8)
+            p_val = -random.randint(8, 15)
             consequence_text = f"Her ay Üretim {p_val}% azalır"
+            cost_amount = random.randrange(150000, 400000, 10000)
+            resolution_cost = {'budget': cost_amount, 'resource': 'Teknik Servis'}
+            
         elif p_type == 'budget':
-            p_val = -random.randint(50000, 150000)
+            # Major financial hit
+            p_val = -random.randrange(150000, 600000, 10000)
             consequence_text = f"Her ay Bütçe {p_val:,} TL azalır"
+            # Resolution cost is heavy investment
+            cost_amount = abs(p_val) * random.choice([2, 3])
+            resolution_cost = {'budget': cost_amount, 'resource': 'Finansal Yapılandırma'}
+            
         elif p_type == 'satisfaction':
-            p_val = -random.randint(2, 5)
+            p_val = -random.randint(5, 12)
             consequence_text = f"Her ay Memnuniyet {p_val}% azalır"
+            cost_amount = random.randrange(100000, 300000, 10000)
+            resolution_cost = {'budget': cost_amount, 'resource': 'İK Desteği'}
+            
         elif p_type == 'risk':
-            p_val = random.randint(3, 7)
+            p_val = random.randint(10, 25)
             consequence_text = f"Her ay Risk {p_val}% artar"
+            cost_amount = random.randrange(150000, 450000, 10000)
+            resolution_cost = {'budget': cost_amount, 'resource': 'Denetim'}
             
         initial_issues.append({
-            "title": issue_text,
-            "description": "Sektörel bir zorluk yaşanıyor.",
+            "title": issue_data['title'],
+            "description": issue_data['desc'],
+            "category": "problem", # Explicitly set as problem
             "consequence": consequence_text,
-            "penalty": {"type": p_type, "value": p_val}
+            "ongoing_penalty": {"type": p_type, "value": p_val},
+            "resolution_cost": resolution_cost
         })
 
     profile = {

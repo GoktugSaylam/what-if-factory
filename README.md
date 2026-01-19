@@ -37,11 +37,12 @@ Bu ajanlar **io.net** üzerinden çalışır ve OpenAI uyumlu API kullanır.
 - Gerçekçi sonuç hesaplamaları
 - Yan etki analizi
 - Risk değerlendirmesi
-
-### Veri Entegrasyonu
-- 📁 Kendi fabrika verilerinizi yükleyin (PDF, CSV, Excel, JSON, TXT)
-- 🔍 Veriler simülasyonu daha gerçekçi yapar
-- 📊 Raporları indirin
+- **📉 Dinamik & Acımasız Piyasalar**: Her 3 ayda bir değişen ve fabrikayı sarsan dış koşullar (Mavi Kartlar).
+- **🚨 Yüksek Riskli Ekonomi**: Hata yapmanın bedeli ağırdır (Örn: -500k TL). Sorunlar görmezden gelinemez, çözülmezse fabrika batar.
+- **Detaylı Raporlama**: Her ay sonunda AI destekli "Yönetici Özeti" modalı
+- **Kurumsal Denge Karnesi**: Kalite, Marka ve İnovasyon puanları
+- **Sistematik Bakım**: Bakım politikası ve fabrika yıpranma simülasyonu
+- **Veri Entegrasyonu**: Kendi fabrika verilerinizi yükleyin ve analiz edin
 
 ## 🚀 Kurulum
 
