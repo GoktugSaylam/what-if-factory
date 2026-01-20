@@ -220,6 +220,13 @@ if 'resolved_issues_this_month' not in st.session_state:
     st.session_state.resolved_issues_this_month = []
 if 'market_condition_timer' not in st.session_state:
     st.session_state.market_condition_timer = 0
+if 'problem_cooldown' not in st.session_state:
+    st.session_state.problem_cooldown = 0
+    
+# CLEAR RESOLVED ISSUES LOGIC (Robust)
+if st.session_state.get('clear_resolved_next_run', False):
+    st.session_state.resolved_issues_this_month = []
+    st.session_state.clear_resolved_next_run = False
 
 # Sidebar
 with st.sidebar:
@@ -262,6 +269,8 @@ with st.sidebar:
         # Reset turn and event system
         st.session_state.month_number = 1
         st.session_state.market_condition_timer = 0 # NEW: Tracks 3-month market cycle
+        st.session_state.problem_cooldown = 0
+        st.session_state.resolved_issues_this_month = []
         st.session_state.decisions_this_month = 0
         st.session_state.pending_investments = []
         st.session_state.current_event = None
@@ -388,25 +397,29 @@ def ensure_game_balance():
 
     # FIX: Ensure 2 Active Problems
     if problems < 2:
-        needed = 2 - problems
-        with st.spinner(f"🚨 {needed} adet yeni sorun yapay zekadan çekiliyor..."):
-            for _ in range(needed):
-                success = False
-                for _ in range(5): # Retry 5 times for AI
-                    try:
-                        evt = agents.generate_random_event(profile, st.session_state.risk_level, st.session_state.month_number, event_type="problem")
-                        if evt and 'new_issue' in evt:
-                            evt['new_issue']['category'] = 'problem'
-                            profile['active_issues'].append(evt['new_issue'])
-                            st.toast("🚨 Yeni Problem Algılandı!", icon="⚠️")
-                            success = True
-                            break
-                    except Exception as e:
-                        print(f"Balance Fix Error (Problem): {e}")
-                
-                if not success:
-                    # Smart Fallback (No label)
-                    profile['active_issues'].append(get_smart_fallback('problem'))
+        # COOLDOWN CHECK: If a problem was recently solved, don't immediately fill the slot
+        if st.session_state.get('problem_cooldown', 0) > 0:
+            pass # Skip generation
+        else:
+            needed = 2 - problems
+            with st.spinner(f"🚨 {needed} adet yeni sorun yapay zekadan çekiliyor..."):
+                for _ in range(needed):
+                    success = False
+                    for _ in range(5): # Retry 5 times for AI
+                        try:
+                            evt = agents.generate_random_event(profile, st.session_state.risk_level, st.session_state.month_number, event_type="problem")
+                            if evt and 'new_issue' in evt:
+                                evt['new_issue']['category'] = 'problem'
+                                profile['active_issues'].append(evt['new_issue'])
+                                st.toast("🚨 Yeni Problem Algılandı!", icon="⚠️")
+                                success = True
+                                break
+                        except Exception as e:
+                            print(f"Balance Fix Error (Problem): {e}")
+                    
+                    if not success:
+                        # Smart Fallback (No label)
+                        profile['active_issues'].append(get_smart_fallback('problem'))
 
 # Run enforcer
 ensure_game_balance()
@@ -845,6 +858,10 @@ else:
             st.session_state.month_number += 1
             st.session_state.decisions_this_month = 0
             st.session_state.resolved_issues_this_month = [] # Clear resolved issues for new month
+            
+            # Decrement Cooldown
+            if st.session_state.get('problem_cooldown', 0) > 0:
+                st.session_state.problem_cooldown -= 1
             
             # MONTHLY COST & REVENUE CALCULATION
             total_employees = st.session_state.factory_profile['employee_count']['total']
@@ -1305,6 +1322,8 @@ else:
             except Exception as e:
                 print(f"Event generation error: {e}")
             
+            # Trigger Rerun to show new month
+            st.session_state.clear_resolved_next_run = True # Ensure clearing happens on next render
             st.rerun()
 
 
@@ -1350,15 +1369,20 @@ else:
                     )
                     st.session_state.current_classification = classification
                     
-                    # DETERMINISTIC MULTI-ACTION BLOCKER [NEW]
+                    """
+                    # DETERMINISTIC MULTI-ACTION BLOCKER [DISABLED]
+                    # Reason: Caused issues with complex events where AI returned multiple logic updates.
+                    # We rely on prompts.py logic rules instead.
+                    
                     if 'resource_updates' in result:
                         active_changes = [k for k, v in result['resource_updates'].items() if v != 0]
                         # Block if more than 1 distinct resource type is modified (e.g. Machines AND Workers)
                         if len(active_changes) > 1:
-                            result['is_allowed'] = False
-                            # Format nicely
-                            formatted_changes = [c.replace('_', ' ').title() for c in active_changes]
-                            result['refusal_reason'] = f"Aynı anda birden fazla kaynağı ({', '.join(formatted_changes)}) değiştiremezsiniz. Lütfen odaklanın ve sırayla yapın."
+                            pass 
+                            # result['is_allowed'] = False
+                            # formatted_changes = [c.replace('_', ' ').title() for c in active_changes]
+                            # result['refusal_reason'] = f"Aynı anda birden fazla kaynağı ({', '.join(formatted_changes)}) değiştiremezsiniz. Lütfen odaklanın ve sırayla yapın."
+                    """
 
                     # CHECK IF ALLOWED
                     if not result.get('is_allowed', True):
@@ -1493,10 +1517,38 @@ else:
                                     is_resolved = False
                                     existing_title = existing['title'] if isinstance(existing, dict) else str(existing)
                                     
-                                    # Check if this existing issue is in the resolved list
-                                    # Since AI might return exact string or partial
-                                    # Normalize for comparison
-                                    if any(r.lower() in existing_title.lower() or existing_title.lower() in r.lower() for r in resolved_list):
+                                    found_match = False
+                                    
+                                    # Normalize strings
+                                    e_title = existing_title.lower()
+                                    e_desc = existing.get('description', '').lower() if isinstance(existing, dict) else ''
+                                    
+                                    for r in resolved_list:
+                                        r_clean = r.lower()
+                                        # Match Logic:
+                                        # 1. Exact title match (fuzzy)
+                                        # 2. Resolution matches title
+                                        # 3. Resolution matches distinct words in title
+                                        
+                                        if r_clean in e_title or e_title in r_clean:
+                                            found_match = True
+                                        elif e_desc and (r_clean in e_desc):
+                                            found_match = True
+                                        
+                                        # Word overlap check (if > 1 chars, match intersection)
+                                        # Helps if AI says "ISO" and issue is "ISO 16949"
+                                        if not found_match:
+                                            r_words = set(w for w in r_clean.split() if len(w) > 1)
+                                            e_words = set(w for w in e_title.split() if len(w) > 1)
+                                            if r_words and e_words:
+                                                common = r_words.intersection(e_words)
+                                                if len(common) >= 1: # At least 1 significant word overlap
+                                                    found_match = True
+                                        
+                                        if found_match:
+                                            break
+                                    
+                                    if found_match:
                                         is_resolved = True
                                         st.toast(f"✅ Sorun Çözüldü: {existing_title}", icon="🛠️")
                                         
@@ -1505,6 +1557,8 @@ else:
                                             st.session_state.resolved_issues_this_month = []
                                         
                                         st.session_state.resolved_issues_this_month.append(existing)
+                                        # Set Cooldown (No new problems for 1 month)
+                                        st.session_state.problem_cooldown = 1
                                     
                                     if not is_resolved:
                                         remaining_issues.append(existing)
@@ -1513,6 +1567,13 @@ else:
                                 
                     except Exception as e:
                         st.error(f"Hata: {e}")
+                        
+                    # DEBUG UI
+                    with st.expander("🕵️ AI Debug (Geliştirici)"):
+                        st.json(result)
+                        st.write("Resolved List from AI:", result.get('resolved_issues'))
+                        st.write("Active Issues Before:", [i['title'] if isinstance(i, dict) else str(i) for i in profile_with_issues.get('active_issues', [])])
+
                     
                     # INVESTMENT DETECTION: Check if decision is an investment
                     if result.get('is_investment', False) and result.get('investment_delay_weeks', 0) > 0:

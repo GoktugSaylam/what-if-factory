@@ -78,7 +78,7 @@ IO_BASE_URL=https://api.io.net/v1
 
 4. **Uygulamayı çalıştırın**
 ```bash
-streamlit run app.py
+streamlit run Fabrika_Yönetimi.py
 ```
 
 ## 📖 Kullanım

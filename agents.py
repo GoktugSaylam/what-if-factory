@@ -112,6 +112,7 @@ FABRİKA PROFİLİ:
 - Sektör: {factory_profile.get('sector', 'Genel Üretim')}
 - Mevcut Durum: {factory_profile.get('current_status', 'Standart operasyon')}
 - Çalışan Sayısı: {factory_profile.get('employee_count', {}).get('total', 200)} (Mavi Yaka: {factory_profile.get('employee_count', {}).get('blue_collar', 150)}, Beyaz Yaka: {factory_profile.get('employee_count', {}).get('white_collar', 20)})
+- Aktif Sorunlar: {[i['title'] for i in factory_profile.get('active_issues', []) if isinstance(i, dict)]}
 - Çalışan Becerileri:
   * Operatörler: {skills.get('operators', 0)} kişi
   * Teknisyenler: {skills.get('technicians', 0)} kişi
@@ -140,9 +141,10 @@ FABRİKA PROFİLİ:
                 top_p=0.9,
                 frequency_penalty=0.5,
                 presence_penalty=0.3,
+                max_tokens=4096,
                 response_format={"type": "json_object"}
             )
-            response_text = response.choices[0].message.content
+            response_text = response.choices[0].message.content or "{}"
             
         print(f"DEBUG: Raw response: {repr(response_text)}")
             
@@ -205,7 +207,7 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
                 frequency_penalty=0.3,
                 response_format={"type": "json_object"}
             )
-            response_text = response.choices[0].message.content
+            response_text = response.choices[0].message.content or "{}"
 
         # Clean and parse
         classification = parse_json_response(response_text)
@@ -243,7 +245,7 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
                 ],
                 temperature=0.6
             )
-            summary = response.choices[0].message.content
+            summary = response.choices[0].message.content or "Özet oluşturulamadı (API Boş Yanıt)."
         
         return summary
     except Exception as e:
@@ -274,7 +276,7 @@ def generate_random_event(factory_profile: dict, risk_level: float, month_number
                 frequency_penalty=0.5,
                 response_format={"type": "json_object"}
             )
-            response_text = response.choices[0].message.content
+            response_text = response.choices[0].message.content or "{}"
 
         # Clean and parse
         event = parse_json_response(response_text)

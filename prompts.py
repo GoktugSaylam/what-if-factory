@@ -145,6 +145,10 @@ LOGIC RULES:
    - You MUST trigger a **Major Crisis** or **Major Opportunity**.
    - Examples: "Global Chip Shortage", "Competitor Factory Fire", "New Government Subsidy", "Port Strike".
    - Impact must be significant (Revenue/Cost +/- 15%).
+15. **Issue Resolution (CRITICAL)**:
+   - CHECK 'active_issues' list in the factory profile.
+   - IF the user's decision addresses an active issue (e.g. "Hire HR" for "Strike", "Fix Machine" for "Breakdown"), YOU MUST add the issue title to 'resolved_issues'.
+   - This keeps the game playable. If the user tries to solve a problem, let them solve it!
 
 Respond ONLY with valid JSON.
 
