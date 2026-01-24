@@ -237,7 +237,7 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
 
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+            gemini_model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
             prompt = f"{prompts.CLASSIFICATION_AGENT_SYSTEM}\n\n{prompts.get_classification_prompt(decision, result)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
             response_text = response.text
@@ -281,7 +281,7 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
 
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+            gemini_model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
             prompt = f"{prompts.SUMMARY_AGENT_SYSTEM}\n\n{prompts.get_summary_prompt(history)}"
             response = gemini_model.generate_content(prompt)
             summary = response.text
@@ -312,7 +312,7 @@ def generate_random_event(factory_profile: dict, risk_level: float, month_number
 
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+            gemini_model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
             prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, month_number, sentiment, event_type)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
             response = gemini_model.generate_content(prompt)
             response_text = response.text
