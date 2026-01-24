@@ -11,7 +11,7 @@ import plotly.express as px
 
 # Page configuration
 st.set_page_config(
-    page_title="What-If Fabrikası 🏭",
+    page_title="What-If Factory 🏭",
     page_icon="🏭",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -135,8 +135,7 @@ st.markdown("""
         border: none;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         transition: all 0.2s;
-    }
-    .stButton>button:hover {
+        stButton>button:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 6px rgba(0,0,0,0.15);
     }
@@ -425,7 +424,7 @@ def ensure_game_balance():
 ensure_game_balance()
 
 # Main content
-st.markdown('<h1 class="main-header">🏭 What-If Fabrikası</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">🏭 What-If Factory</h1>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Fabrika Karar Simülatörü - Deneyerek Öğren!</p>', unsafe_allow_html=True)
 
 # Period Summary Modal

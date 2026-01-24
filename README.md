@@ -2,84 +2,89 @@
 
 **Fabrika Karar Simülatörü - io.net Hackathon Projesi**
 
-Endüstri mühendisliği öğrencileri ve fabrika yöneticileri için oyunlaştırılmış karar simülasyon aracı. AI ajanları kullanarak gerçekçi fabrika yönetimi senaryolarını simüle eder.
+Endüstri mühendisliği öğrencileri ve fabrika yöneticileri için oyunlaştırılmış karar simülasyon aracı. **io Intelligence** altyapısını kullanarak gerçekçi fabrika yönetimi senaryolarını simüle eder ve sonuçlarını analiz eder.
 
-## 🎯 Proje Hakkında
+---
 
-What-If Factory, fabrika yöneticilerinin karşılaştığı kritik kararları sıfır maliyetle test etmelerine olanak sağlayan bir simülasyon platformudur. **io Intelligence** ajanları kullanarak:
+## 🎯 Proje Hakkında (Proje Kapsamı)
 
-- ✅ Üretim değişimlerini hesaplar
-- 💰 Maliyet etkilerini analiz eder
-- ⚠️ Risk seviyelerini değerlendirir
-- 🎯 Kararları kategorize eder (Optimal/Güvenli/Riskli/Tehlikeli)
-- 📊 Dönemsel özet raporlar oluşturur
+What-If Factory, fabrika yöneticilerinin karşılaştığı kritik kararları sıfır maliyetle test etmelerine olanak sağlayan bir **Masaüstü/Web Uygulamasıdır** (Streamlit).
 
-## 🤖 io Intelligence Kullanımı
+Bu proje ile:
+- Fabrika yönetim kararlarının (atama, yatırım, kriz yönetimi) sonuçlarını **simüle edebilir**,
+- Hatalı kararların maliyetini sanal ortamda **görebilir**,
+- **io Intelligence** destekli analizler ile "Güvenli" veya "Riskli" yönetim stratejilerini öğrenebilirsiniz.
 
-Proje **3 AI ajanını zincirleme şekilde** kullanır:
+Değerlendirmeye alınacak **çalışır ürün**, Streamlit arayüzü ile eksiksiz bir deneyim sunmaktadır.
 
-1. **Custom Agent**: Kararın simülasyonunu yapar, üretim/maliyet/risk etkilerini hesaplar
-2. **Classification Agent**: Kararı kategorize eder ve öneri sunar
-3. **Summary Agent**: Dönem sonunda tüm kararları özetleyen rapor üretir
+---
 
-Bu ajanlar **io.net** üzerinden çalışır ve OpenAI uyumlu API kullanır.
+## � io Intelligence Kullanımı (Zorunlu)
 
-## 🎮 Özellikler
+Bu projenin beyni **io Intelligence** (io.net) üzerine kuruludur. Proje, sadece basit bir kural tabanlı sistem değil, bağlama duyarlı **Generative AI** kullanan bir simülatördür.
 
-### Oyunlaştırma
-- 🏆 **Puan Sistemi**: Her karar puan kazandırır veya kaybettirir
-- ⭐ **Seviye Sistemi**: Junior → Middle → Senior Manager
-- 🏅 **Rozet Sistemi**: Risk Avcısı, Maliyet Ustası, Verim Şampiyonu gibi rozetler
-- 📈 **İlerleme Takibi**: Gerçek zamanlı puan ve seviye gösterimi
+### Sistem Mimarisi İçerisindeki Rolü
+Projede **3 farklı AI Ajanı**, zincirleme (Chain of Thought) bir mimari ile çalışır:
 
-### Simülasyon
-- 10 farklı kritik fabrika kararı
-- Gerçekçi sonuç hesaplamaları
-- Yan etki analizi
-- Risk değerlendirmesi
-- **📉 Dinamik & Acımasız Piyasalar**: Her 3 ayda bir değişen ve fabrikayı sarsan dış koşullar (Mavi Kartlar).
-- **🚨 Yüksek Riskli Ekonomi**: Hata yapmanın bedeli ağırdır (Örn: -500k TL). Sorunlar görmezden gelinemez, çözülmezse fabrika batar.
-- **Detaylı Raporlama**: Her ay sonunda AI destekli "Yönetici Özeti" modalı
-- **Kurumsal Denge Karnesi**: Kalite, Marka ve İnovasyon puanları
-- **Sistematik Bakım**: Bakım politikası ve fabrika yıpranma simülasyonu
-- **Veri Entegrasyonu**: Kendi fabrika verilerinizi yükleyin ve analiz edin
+1.  **🏭 Custom Agent (Simülasyon Motoru)**:
+    *   **Görevi:** Kullanıcının verdiği kararı (Örn: "Yeni robot al") ve fabrikanın o anki durumunu (Bütçe, Risk, Memnuniyet) analiz eder.
+    *   **Çıktısı:** Kararın matematiksel sonuçlarını hesaplar (Üretim %10 artar, Bütçe -500k azalır vb.) ve JSON formatında döndürür.
+2.  **⚖️ Classification Agent (Risk Analisti)**:
+    *   **Görevi:** Simülasyon motorundan gelen sonuçları "Endüstri Mühendisliği" prensiplerine göre değerlendirir.
+    *   **Çıktısı:** Kararı etiketler: **Optimal**, **Güvenli**, **Riskli** veya **Tehlikeli**.
+3.  **📝 Summary Agent (Hikaye Anlatıcısı)**:
+    *   **Görevi:** Dönem (ay) sonunda yapılan tüm hamleleri toplar.
+    *   **Çıktısı:** Kullanıcıya bir "Yönetici Özeti" hazırlar, dönemin hikayesini ve gidişatını anlatır.
 
-## 🚀 Kurulum
+### Projeye Sağladığı Katkılar
+*   **Gerçekçilik:** Sabit if-else kuralları yerine, AI her seferinde bağlama uygun, beklenmedik "yan etkiler" ve "krizler" üretebilir.
+*   **Dinamiklik:** Fabrika durumu kötüye gittiğinde AI daha acımasız senaryolar (Grev, Makine Arızası) üretir.
 
-### Gereksinimler
-- Python 3.8+
-- io.net API Key (veya OpenAI API Key test için)
+---
 
-### Adımlar
+## 🚀 Kurulum ve Çalıştırma (Adım Adım)
 
-1. **Repoyu klonlayın**
+Teknik bilgisi olmayan bir kullanıcının dahi projeyi çalıştırabilmesi için adımlar aşağıdadır:
+
+### 1. Gereksinimler
+*   Bilgisayarınızda **Python** yüklü olmalıdır. (Yüklü değilse [python.org](https://www.python.org/downloads/) adresinden indirin).
+*   Bir **io.net API Anahtarı** (veya test için OpenAI API anahtarı).
+
+### 2. Projeyi İndirme (GitHub)
+Bu sayfada sağ üstteki **"Code"** butonuna tıklayın ve **"Download ZIP"** seçeneğini seçin. İndirilen dosyayı masaüstünüze çıkarın (klasör olarak).
+
+*Veya terminal kullanmayı biliyorsanız:*
 ```bash
-git clone https://github.com/YOUR_USERNAME/what-if-factory.git
+git clone https://github.com/GoktugSaylam/what-if-factory.git
 cd what-if-factory
 ```
 
-2. **Bağımlılıkları yükleyin**
+### 3. Kurulum (Windows/Mac)
+Proje klasörünün içine girin. Bir terminal/komut satırı açın ve şu komutu yazarak gerekli kütüphaneleri yükleyin:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **API Key ayarlayın**
-```bash
-# .env dosyası oluşturun (gitignore'da olduğu için manuel oluşturmanız gerekir)
-# Aşağıdaki içeriği .env dosyasına yapıştırın:
+### 4. Ayarların Yapılması (.env)
+Proje klasöründe `.env.example` adında bir dosya göreceksiniz.
+1.  Bu dosyanın adını `.env` olarak değiştirin (veya yeni bir `.env` dosyası oluşturun).
+2.  Dosyayı Not Defteri ile açın ve anahtarınızı yapıştırın:
 
-IO_API_KEY=your_actual_io_net_api_key_here
+```ini
+IO_API_KEY=sk-sizin-io-net-api-anahtariniz
 IO_BASE_URL=https://api.io.net/v1
-
-# veya OpenAI ile test için:
-# OPENAI_API_KEY=your_openai_key
-# IO_BASE_URL=https://api.openai.com/v1
+# Eğer OpenAI kullanacaksanız URL: https://api.openai.com/v1
 ```
 
-4. **Uygulamayı çalıştırın**
+### 5. Uygulamayı Başlatma
+Terminalde şu komutu yazın ve Enter'a basın:
+
 ```bash
 streamlit run Fabrika_Yönetimi.py
 ```
+
+Tarayıcınızda otomatik olarak **http://localhost:8501** adresi açılacak ve oyun başlayacaktır! 🎉
 
 ## 📖 Kullanım
 
@@ -94,7 +99,7 @@ streamlit run Fabrika_Yönetimi.py
 
 ```
 what-if-factory/
-├── app.py              # Ana Streamlit uygulaması
+├── Fabrika_Yönetimi.py # Ana Streamlit uygulaması
 ├── agents.py           # io Intelligence ajan wrapper'ları
 ├── prompts.py          # AI ajan system prompt'ları
 ├── utils.py            # Yardımcı fonksiyonlar (dosya parse, gamification)
@@ -103,50 +108,39 @@ what-if-factory/
 └── README.md           # Bu dosya
 ```
 
-## 🧠 Teknik Detaylar
+---
 
-### Agent Chain
-```
-Kullanıcı Kararı
-    ↓
-Custom Agent (Simülasyon)
-    ↓
-Classification Agent (Kategorizasyon)
-    ↓
-[Dönem Sonu] → Summary Agent (Rapor)
-```
+## 🎥 Video Tanıtım
 
-### Teknoloji Stack
-- **Frontend**: Streamlit
-- **AI Backend**: io.net Intelligence API (OpenAI compatible)
-- **Veri İşleme**: pandas, PyMuPDF, openpyxl
-- **Dil**: Python 3.8+
-
-## 🎨 Ekran Görüntüleri
-
-*(Demo videosu için yer ayrılmıştır)*
-
-## 🏆 io.net Hackathon Kriterleri
-
-✅ **IO Intelligence kullanımı**: 3 ajan zincirleme şekilde kullanılıyor  
-✅ **Çalışır demo**: Streamlit ile tam fonksiyonel uygulama  
-✅ **Gerçek problem çözümü**: Fabrika yönetimi eğitimi maliyeti düşürülüyor  
-✅ **Dokümantasyon**: Detaylı README ve kod açıklamaları  
-✅ **Video**: Demo videosu hazırlanacak  
-
-## 👥 Katkıda Bulunanlar
-
-- **Göktuğ Saylam** - Geliştirici
-
-## 📝 Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır.
-
-## 🔗 Bağlantılar
-
-- [io.net](https://io.net)
-- [Streamlit](https://streamlit.io)
+*(Buraya proje tamamlandığında YouTube veya dosya linki eklenecek)*
 
 ---
 
-**Made with ❤️ for io.net Hackathon**
+## 📝 Değerlendirme & Geri Bildirim Formu Detayları
+
+Hackathon teslim dosyasında yer alacak bilgiler:
+*   **GitHub Repo:** (Bu sayfa)
+*   **Tanıtım Videosu:** (Eklenecek)
+*   **Kısa Açıklama:** What-If Factory, io Intelligence destekli bir fabrika yönetim simülasyonudur.
+*   **io Intelligence Görüşü:** Platformun sağladığı OpenAI uyumlu API yapısı sayesinde mevcut LLM uygulamaları saniyeler içinde io.net ekosistemine taşınabilmiştir. Hız ve maliyet avantajı geliştirme sürecini hızlandırmıştır.
+
+---
+
+## 🎮 Oyun Özellikleri
+
+### Oyunlaştırma
+- 🏆 **Puan Sistemi**: Her karar puan kazandırır veya kaybettirir.
+- ⭐ **Seviye Sistemi**: Stajyer -> Junior -> Senior Manager.
+- 🏅 **Rozet Sistemi**: "Risk Avcısı", "Maliyet Ustası" gibi başarımlar kazanılabilir.
+
+### Simülasyon Mekanikleri
+- **Dinamik Piyasalar**: Her 3 ayda bir değişen dış koşullar (Mavi Kartlar).
+- **Yüksek Risk**: Hata yapmanın bedeli ağırdır. Risk %70'i geçerse fabrika batabilir.
+
+---
+
+## 👥 Katkıda Bulunanlar
+- **Göktuğ Saylam** - Geliştirici
+
+## 📝 Lisans
+Bu proje MIT lisansı altında lisanslanmıştır.
