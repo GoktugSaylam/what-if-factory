@@ -26,20 +26,15 @@ def safe_print(text):
         pass # Silent fail if printing is totally broken
 
 # Prioritize IO.net Intelligence if key is present
+# Prioritize IO.net Intelligence if key is present
+# MODIFIED: Prioritize Gemini if requested
+USE_GEMINI_FIRST = os.getenv("GEMINI_API_KEY") is not None
 USE_IONET = os.getenv("IO_API_KEY") is not None
-USE_GEMINI = False
 NO_API_KEY = False
 client = None
 
-if USE_IONET:
-    safe_print("USING IO.NET INTELLIGENCE API")
-    from openai import OpenAI
-    client = OpenAI(
-        api_key=os.getenv("IO_API_KEY"),
-        base_url=os.getenv("IO_BASE_URL")
-    )
-elif os.getenv("GEMINI_API_KEY"):
-    safe_print("USING GEMINI API")
+if USE_GEMINI_FIRST:
+    safe_print("USING GEMINI API (Primary)")
     USE_GEMINI = True
     import google.generativeai as genai
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -51,6 +46,14 @@ elif os.getenv("GEMINI_API_KEY"):
         "max_output_tokens": 8192,
         "response_mime_type": "application/json",
     }
+elif USE_IONET:
+    safe_print("USING IO.NET INTELLIGENCE API")
+    USE_GEMINI = False
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=os.getenv("IO_API_KEY"),
+        base_url=os.getenv("IO_BASE_URL")
+    )
 else:
     safe_print("⚠️ NO API KEY FOUND - USING MOCK MODE")
     NO_API_KEY = True
