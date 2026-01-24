@@ -77,11 +77,18 @@ IO_BASE_URL=https://api.io.net/v1
 # Eğer OpenAI kullanacaksanız URL: https://api.openai.com/v1
 ```
 
-### 5. Uygulamayı Başlatma
-Terminalde şu komutu yazın ve Enter'a basın:
+## 🚀 Çalıştırma
+
+Uygulamayı başlatmak için:
 
 ```bash
 streamlit run Fabrika_Yönetimi.py
+```
+
+*veya eski komut sistemiyle uyumluluk için:*
+
+```bash
+streamlit run Simulasyon_Merkezi.py
 ```
 
 Tarayıcınızda otomatik olarak **http://localhost:8501** adresi açılacak ve oyun başlayacaktır! 🎉

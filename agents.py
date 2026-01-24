@@ -12,11 +12,24 @@ import re
 load_dotenv()
 
 # Check which API to use
+
+def safe_print(text):
+    """Safely print to console, handling encoding errors on Windows"""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        try:
+            print(text.encode('utf-8', errors='ignore').decode('utf-8'))
+        except:
+            print(text.encode('ascii', errors='replace').decode('ascii'))
+    except Exception:
+        pass # Silent fail if printing is totally broken
+
 # Prioritize IO.net Intelligence if key is present
 USE_IONET = os.getenv("IO_API_KEY") is not None
 
 if not USE_IONET and os.getenv("GEMINI_API_KEY"):
-    print("USING GEMINI API")
+    safe_print("USING GEMINI API")
     USE_GEMINI = True
     import google.generativeai as genai
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -29,7 +42,7 @@ if not USE_IONET and os.getenv("GEMINI_API_KEY"):
         "response_mime_type": "application/json",
     }
 else:
-    print("USING IO.NET INTELLIGENCE API")
+    safe_print("USING IO.NET INTELLIGENCE API")
     USE_GEMINI = False
     from openai import OpenAI
     # Initialize OpenAI client (compatible with io.net)
@@ -99,6 +112,7 @@ def clean_json_response(response_text: str) -> str:
     return response_text # Dummy filler to avoid breaking imports if any, but we will update callers.
 
 
+
 def simulate_decision(decision: str, context: str = "", factory_profile: dict = None, model: str = "gpt-4") -> dict:
     """
     Custom Agent: Simulates factory decision outcomes
@@ -146,7 +160,7 @@ FABRİKA PROFİLİ:
             )
             response_text = response.choices[0].message.content or "{}"
             
-        print(f"DEBUG: Raw response: {repr(response_text)}")
+        safe_print(f"DEBUG: Raw response: {repr(response_text)}")
             
         # Clean and parsing
         result = parse_json_response(response_text)
@@ -154,12 +168,15 @@ FABRİKA PROFİLİ:
         return result
 
     except Exception as e:
-        print(f"====== ERROR in simulate_decision ======")
-        print(f"Error: {e}")
-        print(f"Decision: {decision}")
-        import traceback
-        traceback.print_exc()
-        print(f"====== END ERROR ======")
+        safe_print(f"====== ERROR in simulate_decision ======")
+        safe_print(f"Decision: {decision}")
+        try:
+            import traceback
+            traceback.print_exc()
+        except Exception as trace_err:
+            safe_print(f"Could not print traceback: {trace_err}")
+            safe_print(f"Original Error: {e}")
+        safe_print(f"====== END ERROR ======")
         
         # Fallback response with ACTUAL error message for debugging
         err_msg = str(e)
@@ -214,7 +231,7 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
         
         return classification
     except Exception as e:
-        print(f"Error in classify_risk: {e}")
+        safe_print(f"Error in classify_risk: {e}")
         return {
             "category": "Güvenli",
             "explanation": f"Sınıflandırma hatası: {str(e)}",
@@ -249,7 +266,7 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
         
         return summary
     except Exception as e:
-        print(f"Error in generate_summary: {e}")
+        safe_print(f"Error in generate_summary: {e}")
         return f"## Özet Hatası\n\nRapor oluşturulurken hata oluştu: {str(e)}"
 
 def generate_random_event(factory_profile: dict, risk_level: float, month_number: int, model: str = "gpt-4", sentiment: str = "Neutral", event_type: str = None) -> dict:
@@ -287,5 +304,5 @@ def generate_random_event(factory_profile: dict, risk_level: float, month_number
             
         return event
     except Exception as e:
-        print(f"Error in generate_random_event: {e}")
+        safe_print(f"Error in generate_random_event: {e}")
         return None

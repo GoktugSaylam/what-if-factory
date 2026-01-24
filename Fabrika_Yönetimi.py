@@ -1471,12 +1471,16 @@ else:
                                 st.toast(f"{icon_map.get(m_key, '📈')} {m_key.title()}: {m_val:+}", icon=icon_map.get(m_key, '📈'))
 
                     # MAINTENANCE POLICY UPDATE [NEW]
-                    if 'maintenance_policy' in result:
-                        val = float(result['maintenance_policy'])
-                        st.session_state.factory_profile['maintenance_policy'] = val
-                        
-                        policy_map = {0.5: "Ucuz Bakım", 1.0: "Standart", 1.5: "Önleyici (Pahalı)"}
-                        st.toast(f"🔧 Bakım Politikası: {policy_map.get(val, str(val))} ({val}x)", icon="🛠️")
+                    # MAINTENANCE POLICY UPDATE [NEW]
+                    if result.get('maintenance_policy') is not None:
+                        try:
+                            val = float(result['maintenance_policy'])
+                            st.session_state.factory_profile['maintenance_policy'] = val
+                            
+                            policy_map = {0.5: "Ucuz Bakım", 1.0: "Standart", 1.5: "Önleyici (Pahalı)"}
+                            st.toast(f"🔧 Bakım Politikası: {policy_map.get(val, str(val))} ({val}x)", icon="🛠️")
+                        except (ValueError, TypeError):
+                            pass
 
                     # Save to history
                     st.session_state.history.append({
