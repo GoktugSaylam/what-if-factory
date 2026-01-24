@@ -27,8 +27,18 @@ def safe_print(text):
 
 # Prioritize IO.net Intelligence if key is present
 USE_IONET = os.getenv("IO_API_KEY") is not None
+USE_GEMINI = False
+NO_API_KEY = False
+client = None
 
-if not USE_IONET and os.getenv("GEMINI_API_KEY"):
+if USE_IONET:
+    safe_print("USING IO.NET INTELLIGENCE API")
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=os.getenv("IO_API_KEY"),
+        base_url=os.getenv("IO_BASE_URL")
+    )
+elif os.getenv("GEMINI_API_KEY"):
     safe_print("USING GEMINI API")
     USE_GEMINI = True
     import google.generativeai as genai
@@ -42,14 +52,9 @@ if not USE_IONET and os.getenv("GEMINI_API_KEY"):
         "response_mime_type": "application/json",
     }
 else:
-    safe_print("USING IO.NET INTELLIGENCE API")
-    USE_GEMINI = False
-    from openai import OpenAI
-    # Initialize OpenAI client (compatible with io.net)
-    client = OpenAI(
-        api_key=os.getenv("IO_API_KEY"),
-        base_url=os.getenv("IO_BASE_URL")
-    )
+    safe_print("⚠️ NO API KEY FOUND - USING MOCK MODE")
+    NO_API_KEY = True
+
 
 def parse_json_response(response_text: str) -> dict:
     """
@@ -118,6 +123,21 @@ def simulate_decision(decision: str, context: str = "", factory_profile: dict = 
     Custom Agent: Simulates factory decision outcomes
     """
     try:
+        if NO_API_KEY:
+            safe_print("USING MOCK RESPONSE (No API Key)")
+            return {
+                "production_change_percent": 0,
+                "cost_change_percent": 0,
+                "risk_level": "Orta",
+                "risk_explanation": "API Anahtarı bulunamadı (.env dosyası eksik). Lütfen .env dosyasını ayarlayın. Bu bir simülasyon yanıtıdır.",
+                "side_effects": ["API Bağlantı Hatası"],
+                "score_impact": 0,
+                "budget_impact": 0,
+                "satisfaction_impact": 0,
+                "production_rate_impact": 0,
+                "is_allowed": True
+            }
+
         factory_context = ""
         if factory_profile:
             skills = factory_profile.get('employee_count', {}).get('skills', {})
@@ -205,6 +225,13 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
     Classification Agent: Classifies decision risk
     """
     try:
+        if NO_API_KEY:
+             return {
+                "category": "Bilinmiyor",
+                "explanation": "API Anahtarı eksik, risk analizi yapılamadı.",
+                "recommendation": "Lütfen .env dosyasını kontrol edin."
+            }
+
         if USE_GEMINI:
             # Use Gemini API
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
@@ -246,6 +273,9 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
         return "## Henüz karar alınmadı\n\nKarar aldıkça burada özet göreceksiniz."
     
     try:
+        if NO_API_KEY:
+            return "## API Anahtarı Eksik\n\nÖzet oluşturmak için lütfen geçerli bir API anahtarı girin."
+
         if USE_GEMINI:
             # Use Gemini API
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
@@ -274,6 +304,9 @@ def generate_random_event(factory_profile: dict, risk_level: float, month_number
     Event Generator Agent: Generates contextual random events
     """
     try:
+        if NO_API_KEY:
+            return None
+
         if USE_GEMINI:
             # Use Gemini API
             gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
