@@ -13,15 +13,16 @@ load_dotenv()
 USE_GEMINI = os.getenv("GEMINI_API_KEY") is not None
 
 if USE_GEMINI:
-    import google.generativeai as genai
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    from google import genai
+    from google.genai import types
+    gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     # Configure Gemini model with JSON response
-    generation_config = {
-        "temperature": 0.7,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 8192,
-    }
+    generation_config = types.GenerateContentConfig(
+        temperature=0.7,
+        top_p=0.95,
+        top_k=40,
+        max_output_tokens=8192,
+    )
 else:
     from openai import OpenAI
     # Initialize OpenAI client (compatible with io.net)
@@ -64,9 +65,8 @@ FABRİKA PROFİLİ:
         
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
             prompt = f"{prompts.CUSTOM_AGENT_SYSTEM.format(factory_profile=factory_context, context=context)}\n\n{prompts.get_custom_agent_prompt(decision, context)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
-            response = gemini_model.generate_content(prompt)
+            response = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=prompt, config=generation_config)
             
             # Extract JSON from response (handle markdown code blocks)
             response_text = response.text.strip()
@@ -134,9 +134,8 @@ def classify_risk(decision: str, result: dict, model: str = "gpt-4") -> dict:
     try:
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
             prompt = f"{prompts.CLASSIFICATION_AGENT_SYSTEM}\n\n{prompts.get_classification_prompt(decision, result)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
-            response = gemini_model.generate_content(prompt)
+            response = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=prompt, config=generation_config)
             
             # Extract JSON from response (handle markdown code blocks)
             response_text = response.text.strip()
@@ -188,9 +187,8 @@ def generate_summary(history: list, model: str = "gpt-4") -> str:
     try:
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
             prompt = f"{prompts.SUMMARY_AGENT_SYSTEM}\n\n{prompts.get_summary_prompt(history)}"
-            response = gemini_model.generate_content(prompt)
+            response = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=prompt, config=generation_config)
             summary = response.text
         else:
             # Use OpenAI/io.net API
@@ -225,9 +223,8 @@ def generate_random_event(factory_profile: dict, risk_level: float, week_number:
     try:
         if USE_GEMINI:
             # Use Gemini API
-            gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
             prompt = f"{prompts.get_event_generator_prompt(factory_profile, risk_level, week_number)}\n\nRespond ONLY with valid JSON format, no markdown code blocks."
-            response = gemini_model.generate_content(prompt)
+            response = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=prompt, config=generation_config)
             
             # Extract JSON from response (handle markdown code blocks)
             response_text = response.text.strip()
